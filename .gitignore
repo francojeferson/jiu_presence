@@ -44,5 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Claude AI config (local settings may contain secrets)
+# Project context & documentation (irrelevant for execution)
+.memory-bank/
+.clinerules/
 .claude/
+brief.md
+CLAUDE.md
