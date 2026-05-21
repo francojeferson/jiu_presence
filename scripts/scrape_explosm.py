@@ -17,7 +17,7 @@ def get_latest_cartoon_url():
     with a src matching 'static.explosm.net/<year>/' pattern.
     Returns the image URL as a string or None if extraction fails.
     """
-    url = "http://explosm.net"
+    url = "https://explosm.net"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -40,7 +40,7 @@ def get_latest_cartoon_url():
             if "static.explosm.net" in src:
                 # Match pattern: /YYYY/ in URL path (date-based comic images)
                 # and ends with .png
-                if any(f"/{year}/" in src for year in ["2022", "2023", "2024", "2025", "2026", "2027", "2028"]) and src.endswith(".png"):
+                if any(f"/{year}/" in src for year in [str(y) for y in range(2022, 2036)]) and src.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
                     return src
 
         print("Could not find the latest comic image on the page.")
@@ -98,8 +98,11 @@ def main():
 
     if img_url:
         print(f"Found latest cartoon image URL: {img_url}")
-        # Define the static filename for the output image
-        output_filename = "latest_explosm_cartoon.jpg"
+        # Preserve the original file extension from the source URL
+        ext = os.path.splitext(img_url.split("?")[0])[1]  # e.g., .png, .jpg, .webp
+        if ext.lower() not in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+            ext = ".png"
+        output_filename = f"latest_explosm_cartoon{ext}"
         # Download and save the image
         success = download_image(img_url, output_filename)
         if not success:

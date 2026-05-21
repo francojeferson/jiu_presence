@@ -26,6 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
+      - name: Remove previous cartoon image
+        run: |
+          rm -f latest_explosm_cartoon.png latest_explosm_cartoon.jpg latest_explosm_cartoon.jpeg latest_explosm_cartoon.webp latest_explosm_cartoon.gif
+
       - name: Run Explosm scraper
         run: python scripts/scrape_explosm.py
 
