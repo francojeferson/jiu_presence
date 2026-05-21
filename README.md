@@ -1,6 +1,6 @@
 # JiuPresence
 
-![Latest Explosm Cartoon](latest_explosm_cartoon.jpg)
+![Latest Explosm Cartoon](latest_explosm_cartoon.png)
 
 Facial recognition attendance system for Brazilian Jiu-Jitsu academies. Replaces manual attendance sheets with on-device face detection and biometric matching. Built with Flutter, Supabase, and on-device ML.
 

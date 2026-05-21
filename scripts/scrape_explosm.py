@@ -98,11 +98,8 @@ def main():
 
     if img_url:
         print(f"Found latest cartoon image URL: {img_url}")
-        # Preserve the original file extension from the source URL
-        ext = os.path.splitext(img_url.split("?")[0])[1]  # e.g., .png, .jpg, .webp
-        if ext.lower() not in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
-            ext = ".png"
-        output_filename = f"latest_explosm_cartoon{ext}"
+        # Use a fixed filename so the README image reference always works
+        output_filename = "latest_explosm_cartoon.png"
         # Download and save the image
         success = download_image(img_url, output_filename)
         if not success:
