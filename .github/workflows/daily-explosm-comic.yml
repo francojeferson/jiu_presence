@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   scrape-explosm:
@@ -33,12 +32,14 @@ jobs:
       - name: Run Explosm scraper
         run: python scripts/scrape_explosm.py
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8
-        with:
-          title: "feat(comics): update Explosm cartoon [$(date +%Y-%m-%d)]"
-          body: "Automated PR to update the latest Explosm cartoon"
-          branch: daily-explosm-comic-updates
-          base: main
-          labels: automated
-          commit-message: "feat(comics): update Explosm cartoon [$(date +%Y-%m-%d)]"
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add latest_explosm_cartoon.png
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "feat(comics): update Explosm cartoon [$(date +%Y-%m-%d)]"
+            git push
+          fi
