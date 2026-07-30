@@ -8,6 +8,10 @@ and easy to understand for beginners learning web scraping with Python.
 import requests
 from bs4 import BeautifulSoup
 import os
+from urllib.parse import urlparse
+
+# Only images served from exactly this host are treated as comics.
+COMIC_IMAGE_HOST = "static.explosm.net"
 
 
 def get_latest_cartoon_url():
@@ -37,7 +41,10 @@ def get_latest_cartoon_url():
         # Look for images with this pattern.
         for img in soup.find_all("img"):
             src = img.get("src", "")
-            if "static.explosm.net" in src:
+            # Compare the parsed hostname exactly. A substring check would also
+            # accept lookalike hosts such as 'static.explosm.net.example.com',
+            # letting a tampered page redirect the download elsewhere.
+            if urlparse(src).hostname == COMIC_IMAGE_HOST:
                 # Match pattern: /YYYY/ in URL path (date-based comic images)
                 # and ends with .png
                 if any(f"/{year}/" in src for year in [str(y) for y in range(2022, 2036)]) and src.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
