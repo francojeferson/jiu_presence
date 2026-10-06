@@ -1,0 +1,15 @@
+{
+  "schema-version": 1,
+  "feature-dir": "_reversa_forward/001-fundacao-e-chamada-manual",
+  "feature-id": "001",
+  "short-name": "fundacao-e-chamada-manual",
+  "started-at": "2026-10-04T18:37:08.173Z",
+  "current-stage": "done",
+  "stages-completed": [
+    "requirements",
+    "plan",
+    "to-do",
+    "coding"
+  ],
+  "paused-features": []
+}

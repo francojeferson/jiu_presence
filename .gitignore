@@ -50,3 +50,31 @@ app.*.map.json
 .claude/
 brief.md
 CLAUDE.md
+
+# Reversa
+.reversa/config.user.toml
+_reversa_sdd/
+
+# App web (apps/web, packages/*) — acrescentado pela feature 001.
+# Acréscimo puro: nenhuma linha acima foi removida ou alterada.
+node_modules/
+.turbo/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Variáveis de ambiente — nunca comitar
+.env
+.env.local
+.env.*.local
+
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+
+# Conjunto de avaliação da Fase 0 (biometria).
+# Fotos de rosto de alunos, incluindo crianças. NUNCA versionar.
+# A pasta tem um .gitignore próprio como segunda linha de defesa.
+.avaliacao/

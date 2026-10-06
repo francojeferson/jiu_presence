@@ -1,0 +1,130 @@
+# CI do app web (T064).
+#
+# NÃO toca em daily-explosm-comic.yml, que é uma automação independente e
+# precisa continuar funcionando.
+#
+# Os caminhos do projeto Flutter legado ficam fora dos gatilhos: mudanças
+# lá não existem (é legado intocável) e não devem disparar este pipeline.
+
+name: web-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'infra/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - 'tsconfig.base.json'
+      - '.dependency-cruiser.cjs'
+      - 'vitest.workspace.ts'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Credenciais de fachada: o build precisa das variáveis existirem, mas o
+  # CI não acessa nenhum Supabase real. Segredo nenhum entra aqui.
+  NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-de-ci
+
+jobs:
+  verificar:
+    name: Testes, tipos e arquitetura
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar tipos
+        run: pnpm typecheck
+
+      # A regra de dependência é verificada à parte, além de rodar dentro
+      # da suíte, para que a falha apareça com nome próprio no log.
+      - name: Regra de dependência da Arquitetura Limpa
+        run: pnpm arch
+
+      - name: Testes
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # ⚠️ A garantia mais importante desta feature. Nenhuma alteração pode
+      # tocar o projeto Flutter: a remoção dele tem critérios próprios em
+      # _reversa_sdd/sdd/descomissionamento-do-legado.md, e nenhum deles é
+      # "o CI passou".
+      - name: O legado Flutter permanece intocado
+        run: |
+          ALVOS="lib test supabase docs web windows pubspec.yaml pubspec.lock analysis_options.yaml .metadata"
+          SUJO=""
+          for alvo in $ALVOS; do
+            if [ -e "$alvo" ] && ! git diff --quiet "origin/${{ github.base_ref || 'main' }}" -- "$alvo" 2>/dev/null; then
+              SUJO="$SUJO $alvo"
+            fi
+          done
+          if [ -n "$SUJO" ]; then
+            echo "::error::O código Flutter legado foi modificado:$SUJO"
+            echo "A remoção do legado é uma feature própria, com critérios de"
+            echo "validação em _reversa_sdd/sdd/descomissionamento-do-legado.md."
+            exit 1
+          fi
+          echo "Legado intocado."
+
+  e2e:
+    name: Fluxo offline de ponta a ponta
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: verificar
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Instalar o navegador
+        run: pnpm --filter @jiupresence/web exec playwright install chromium --with-deps
+
+      # O cenário crítico do produto: chamada em modo avião, recarga,
+      # fila preservada. Nenhum teste em jsdom prova isso.
+      - name: Playwright
+        run: pnpm --filter @jiupresence/web run e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7

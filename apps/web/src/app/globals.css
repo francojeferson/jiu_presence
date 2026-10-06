@@ -1,0 +1,171 @@
+/*
+ * Estilos globais.
+ *
+ * Duas restrições mandam no design, e as duas vêm do contexto de uso
+ * descrito em personas.md: o professor opera de pé, no tatame, com pressa,
+ * possivelmente com as mãos suadas.
+ *
+ *   1. Alvos de toque de 48 px no mínimo (RNF-05).
+ *   2. Contraste alto, legível sob luz de galpão.
+ */
+
+:root {
+  --fundo: #101014;
+  --fundo-elevado: #1a1a21;
+  --fundo-toque: #23232d;
+  --borda: #2e2e3a;
+  --texto: #f2f2f5;
+  --texto-suave: #a0a0b0;
+  --acento: #4c8dff;
+  --presente: #2ea86b;
+  --ausente: #3a3a46;
+  --alerta: #e0a33e;
+  --erro: #e05c5c;
+  --toque-min: 48px;
+  --raio: 10px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+  /* Evita que o navegador aumente a fonte em paisagem. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* Espaço para a navegação fixa e para a área segura do aparelho. */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  min-height: var(--toque-min);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--fundo-toque);
+  padding: 0 1rem;
+  cursor: pointer;
+}
+
+button:active {
+  filter: brightness(1.25);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primario {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #06080f;
+  font-weight: 650;
+}
+
+input,
+select {
+  min-height: var(--toque-min);
+  width: 100%;
+  padding: 0 0.75rem;
+  background: var(--fundo-elevado);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+main {
+  padding: 1rem;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.35rem;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+label > span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.cartao {
+  background: var(--fundo-elevado);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 1rem;
+}
+
+.vazio {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--texto-suave);
+}
+
+.erro-texto {
+  color: var(--erro);
+  margin: 0.75rem 0;
+}
+
+.esqueleto {
+  background: linear-gradient(90deg, #1a1a21, #23232d, #1a1a21);
+  background-size: 200% 100%;
+  animation: brilho 1.4s infinite;
+  border-radius: var(--raio);
+  /* Altura igual à da linha real, para não causar salto de layout. */
+  height: 64px;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes brilho {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}

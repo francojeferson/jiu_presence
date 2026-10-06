@@ -1,0 +1,156 @@
+/* Navegação, indicador de sincronização e a tela de chamada. */
+
+.navegacao {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--fundo-elevado);
+  border-top: 1px solid var(--borda);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+
+.navegacao a {
+  flex: 1;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto-suave);
+  text-decoration: none;
+  font-weight: 560;
+}
+
+.navegacao a.ativa {
+  color: var(--acento);
+  box-shadow: inset 0 2px 0 var(--acento);
+}
+
+.indicador {
+  display: block;
+  padding: 0.6rem 1rem;
+  background: var(--fundo-elevado);
+  border-bottom: 1px solid var(--borda);
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Único estado que pede ação: exige decisão do professor. */
+.indicador.atencao {
+  background: #3a2f16;
+  border-bottom-color: var(--alerta);
+  color: #f3d79a;
+  font-weight: 600;
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- chamada */
+
+.cabecalho-chamada {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.contagem {
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-suave);
+}
+
+.contagem strong {
+  color: var(--presente);
+  font-size: 1.25rem;
+}
+
+.lista-chamada {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Linha inteira é alvo de toque. Um toque alterna (RF-18). */
+.linha-aluno {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 64px;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  text-align: left;
+  background: var(--fundo-elevado);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.linha-aluno.presente {
+  background: #14301f;
+  border-color: var(--presente);
+}
+
+.marcador {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--ausente);
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  color: transparent;
+}
+
+.linha-aluno.presente .marcador {
+  background: var(--presente);
+  border-color: var(--presente);
+  color: #06140c;
+}
+
+.nome-aluno {
+  flex: 1;
+  font-weight: 560;
+}
+
+.faixa-aluno {
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.barra-acao {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to top, var(--fundo) 65%, transparent);
+}
+
+.barra-acao button {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
+.aviso {
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--raio);
+  background: #2a2616;
+  border: 1px solid var(--alerta);
+  color: #f3d79a;
+  font-size: 0.9rem;
+}

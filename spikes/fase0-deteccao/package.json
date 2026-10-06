@@ -1,0 +1,10 @@
+{
+  "name": "spike-fase0-deteccao",
+  "private": true,
+  "type": "module",
+  "description": "DESCARTAVEL. Sonda da Fase 0: mede taxa de deteccao facial no conjunto de avaliacao. Nao e codigo de produto.",
+  "dependencies": {
+    "onnxruntime-node": "^1.20.1",
+    "sharp": "^0.33.5"
+  }
+}

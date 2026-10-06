@@ -1,0 +1,80 @@
+{"ts":"2026-10-04T19:00:00Z","action":"T001","status":"done","files":["pnpm-workspace.yaml"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T002","status":"done","files":["package.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T003","status":"done","files":["turbo.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T004","status":"done","files":["tsconfig.base.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T005","status":"done","files":["packages/domain/package.json","packages/domain/tsconfig.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T006","status":"done","files":["packages/contracts/package.json","packages/contracts/tsconfig.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T007","status":"done","files":["packages/application/package.json","packages/application/tsconfig.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T008","status":"done","files":["packages/infrastructure/package.json","packages/infrastructure/tsconfig.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T009","status":"done","files":["apps/web/package.json","apps/web/tsconfig.json"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T010","status":"done","files":[".dependency-cruiser.cjs"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T011","status":"done","files":["vitest.workspace.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T012","status":"done","files":["infra/supabase/migrations/0001_extensions_and_types.sql"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T013","status":"done","files":["infra/supabase/migrations/0002_operador.sql"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T014","status":"done","files":["infra/supabase/migrations/0003_aluno_turma_matricula.sql"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T015","status":"done","files":["infra/supabase/migrations/0004_chamada_presenca.sql"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T016","status":"done","files":["apps/web/.env.example"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T017","status":"done","files":["apps/web/.gitignore"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T018","status":"done","files":["packages/domain/test/arquitetura.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T019","status":"done","files":["packages/domain/test/faixa.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T020","status":"done","files":["packages/domain/test/aluno.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T021","status":"done","files":["packages/domain/test/chamada.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T022","status":"done","files":["packages/domain/test/turma.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T023","status":"done","files":["packages/domain/test/identidade.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T024","status":"done","files":["packages/infrastructure/test/outbox.test.ts","packages/infrastructure/test/setup.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T026","status":"done","files":["packages/application/test/chamada.test.ts","packages/application/test/fakes.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T030","status":"done","files":["packages/domain/src/valor/faixa.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T031","status":"done","files":["packages/domain/src/valor/identidade.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T032","status":"done","files":["packages/domain/src/aluno/aluno.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T033","status":"done","files":["packages/domain/src/turma/turma.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T034","status":"done","files":["packages/domain/src/chamada/chamada.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T035","status":"done","files":["packages/domain/src/portas/repositorios.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T036","status":"done","files":["packages/domain/src/portas/reconhecimento-facial.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T038","status":"done","files":["packages/application/src/aluno/casos-de-uso.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T039","status":"done","files":["packages/application/src/aluno/casos-de-uso.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T040","status":"done","files":["packages/application/src/chamada/casos-de-uso.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T041","status":"done","files":["packages/application/src/chamada/casos-de-uso.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T042","status":"done","files":["packages/infrastructure/src/local/db.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T043","status":"done","files":["packages/infrastructure/src/local/outbox.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T045","status":"done","files":["packages/infrastructure/src/local/cota.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T048","status":"done","files":["packages/infrastructure/src/sync/classificacao.ts","packages/infrastructure/test/classificacao.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"EXTRA-01","status":"done","note":"DataCivil como objeto de valor, nao previsto no actions.md. Necessario porque a data da aula e fato civil, nao instante: usar Date produziria o bug de presenca aparecendo no dia anterior em outro fuso.","files":["packages/domain/src/valor/data.ts","packages/domain/test/data.test.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"EXTRA-02","status":"done","note":"Hierarquia de erros de dominio, nao prevista. Mensagens ja em portugues, consumidas direto pela UI.","files":["packages/domain/src/erros.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T048","status":"corrected","note":"BUG encontrado por teste: violacao de FK (23503) chegando com status 409 caia no ramo de unicidade e era classificada PERMANENTE, tirando a presenca da fila ativa. Corrigido: 23503 verificado antes do ramo 409.","files":["packages/infrastructure/src/sync/classificacao.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T043","status":"corrected","note":"BUG encontrado por teste: proximaOrdem derivava do maior ordem ainda na fila, entao o contador REINICIAVA quando a fila esvaziava, podendo dar ordem menor a item novo que a de um pendente. Corrigido com contador persistente transacional.","files":["packages/infrastructure/src/local/db.ts","packages/infrastructure/src/local/outbox.ts"]}
+{"ts":"2026-10-04T19:00:00Z","action":"T018","status":"corrected","note":"VERIFICACAO NEGATIVA inicialmente FALSO-POSITIVA: o teste passava com import proibido injetado, porque packages/infrastructure/src ainda nao existia e o import era irresolvivel. Refeita apos criar a infraestrutura: a violacao foi detectada corretamente.","files":["packages/domain/test/arquitetura.test.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T025","status":"done","files":["packages/infrastructure/test/sincronizador.test.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T027","status":"done","files":["packages/application/test/aluno.test.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T028","status":"done","files":["apps/web/playwright.config.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T029","status":"done","files":["apps/web/e2e/chamada-offline.spec.ts"],"note":"4 cenarios passando contra build limpo. O 5o (chegada ao Supabase) esta como fixme: exige projeto real provisionado, e e o criterio CV-03 do descomissionamento."}
+{"ts":"2026-10-04T20:30:00Z","action":"T037","status":"done","files":["packages/contracts/src/schemas.ts","packages/contracts/src/index.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T044","status":"done","files":["packages/infrastructure/src/local/repositorios.ts","packages/infrastructure/src/mapeadores.ts"],"note":"Gravacao local e enfileiramento na MESMA transacao Dexie."}
+{"ts":"2026-10-04T20:30:00Z","action":"T046","status":"done","files":["packages/infrastructure/src/supabase/cliente.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T047","status":"done","files":["packages/infrastructure/src/supabase/operacoes.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T049","status":"done","files":["packages/infrastructure/src/sync/sincronizador.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T050","status":"done","files":["packages/infrastructure/src/sync/conectividade.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T051","status":"done","files":["packages/infrastructure/src/sync/cache.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T052","status":"done","files":["apps/web/src/composicao/container.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T053","status":"done","files":["apps/web/next.config.ts","apps/web/src/app/sw.ts","apps/web/public/manifest.json"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T054","status":"done","files":["apps/web/src/app/entrar/page.tsx"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T055","status":"done","files":["apps/web/src/componentes/Shell.tsx","apps/web/src/componentes/IndicadorDeSincronizacao.tsx","apps/web/src/app/layout.tsx","apps/web/src/app/shell.css","apps/web/src/app/globals.css"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T056","status":"done","files":["apps/web/src/app/alunos/page.tsx"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T057","status":"done","files":["apps/web/src/app/turmas/page.tsx"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T058","status":"done","files":["apps/web/src/app/chamada/page.tsx"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T059","status":"done","files":["apps/web/src/app/error.tsx","apps/web/src/lib/erros.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T060","status":"done","files":["apps/web/src/app/pendencias/page.tsx"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T061","status":"done","files":["apps/web/src/app/alunos/busca.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T062","status":"done","files":["packages/infrastructure/src/log.ts"],"note":"Campos pessoais higienizados: nome, data de nascimento, email e faixa nunca entram no log."}
+{"ts":"2026-10-04T20:30:00Z","action":"T063","status":"done","files":["apps/web/README.md"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T064","status":"done","files":[".github/workflows/web-ci.yml"],"note":"Workflow NOVO. daily-explosm-comic.yml intocado. Inclui passo que falha o CI se o legado Flutter for modificado."}
+{"ts":"2026-10-04T20:30:00Z","action":"T053","status":"corrected","note":"BUG DE PRODUTO achado pelo e2e: clientsClaim estava false, por confusao minha com skipWaiting. Com ele false o service worker nunca assume a primeira visita e o app NAO ABRE OFFLINE, que e o requisito central RF-06. Corrigido para true, mantendo skipWaiting false.","files":["apps/web/src/app/sw.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T055","status":"corrected","note":"BUG DE PRODUTO achado pelo e2e: o indicador de pendencias so atualizava durante uma rodada de sincronizacao. Offline a rodada nao acontece, entao o professor confirmava a chamada e nada na tela dizia que ficou salvo. Adicionado emissor de evento no outbox, consumido pelo sincronizador.","files":["packages/infrastructure/src/local/outbox.ts","packages/infrastructure/src/sync/sincronizador.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T053","status":"corrected","note":"navigationPreload desligado: offline a promessa de preload rejeita e complica o caminho de fallback, justamente o que precisa ser confiavel.","files":["apps/web/src/app/sw.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T044","status":"corrected","note":"RepositoriosLocais nao pode declarar implements das quatro portas: porId, listar e salvar colidem com assinaturas diferentes. Conformidade garantida pelo tipo de retorno de portasLocais().","files":["packages/infrastructure/src/local/repositorios.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T051","status":"corrected","note":"zod era importado em infrastructure sem estar declarado como dependencia. Em vez de adiciona-lo, foi criado o helper validarLista em contracts: o zod fica confinado ao pacote de fronteira.","files":["packages/contracts/src/schemas.ts","packages/infrastructure/src/sync/cache.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T009","status":"corrected","note":"As extensoes .js nos imports, exigidas por verbatimModuleSyntax, nao resolvem sob o webpack do Next. Adicionado extensionAlias mapeando .js para .ts.","files":["apps/web/next.config.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T018","status":"corrected","note":"Teste de arquitetura reescrito para usar os tipos reais do dependency-cruiser, que so ficaram disponiveis apos o pnpm install.","files":["packages/domain/test/arquitetura.test.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T029","status":"corrected","note":"ERRO NO MEU TESTE, nao no produto: esperava serviceWorker.controller na primeira carga, o que nunca ocorre antes da ativacao. E a primeira visita acontece durante a instalacao do worker, entao a resposta nao e cacheada. Teste ajustado para refletir o fluxo real.","files":["apps/web/e2e/chamada-offline.spec.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"T025","status":"corrected","note":"ERRO NA MINHA EXPECTATIVA, nao no produto: esperava 1 pendente apos falha permanente, mas falha permanente NAO interrompe a fila. Teste corrigido e desdobrado em dois casos.","files":["packages/infrastructure/test/sincronizador.test.ts"]}
+{"ts":"2026-10-04T20:30:00Z","action":"VERIFICACAO-FINAL","status":"done","note":"pnpm typecheck 9/9 · pnpm arch 0 erros · pnpm test 207/207 · playwright 4/4 contra build limpo com CI=1 · next build 8 rotas, First Load JS 224kB (RNF-02 exige <250kB) · git status nos caminhos legados vazio.","files":[]}
+{"ts":"2026-10-04T20:45:00Z","action":"T017","status":"corrected","note":"Lacuna real: criar um projeto Node na raiz deixou node_modules/, .turbo/ e .next/ fora do .gitignore da raiz, que e do Flutter. Commitar isso seria grave. Com a politica ja liberada, as entradas foram ACRESCENTADAS ao final do arquivo; nenhuma linha existente foi removida ou alterada.","files":[".gitignore"]}
