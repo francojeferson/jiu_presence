@@ -22,7 +22,7 @@
     "dependency-cruiser": "^16.4.0",
     "turbo": "^2.1.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
+    "vitest": "^4.1.11",
     "@vitest/coverage-v8": "^2.1.0"
   },
   "pnpm": {
