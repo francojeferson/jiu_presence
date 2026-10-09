@@ -1,3 +1,4 @@
+import './setup.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BancoLocal, type ItemDaFila } from '../src/local/db.js';
 import { Outbox } from '../src/local/outbox.js';

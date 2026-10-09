@@ -1,3 +1,4 @@
+import './setup.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BancoLocal, definirBancoLocal } from '../src/local/db.js';
 import { Outbox, esperaParaTentativa, ESPERA_MAXIMA_MS } from '../src/local/outbox.js';
