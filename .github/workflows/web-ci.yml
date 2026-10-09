@@ -45,6 +45,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -77,9 +79,11 @@ jobs:
       - name: O legado Flutter permanece intocado
         run: |
           ALVOS="lib test supabase docs web windows pubspec.yaml pubspec.lock analysis_options.yaml .metadata"
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          BASE="${BASE:-HEAD^}"
           SUJO=""
           for alvo in $ALVOS; do
-            if [ -e "$alvo" ] && ! git diff --quiet "origin/${{ github.base_ref || 'main' }}" -- "$alvo" 2>/dev/null; then
+            if ! git diff --quiet "$BASE" -- "$alvo"; then
               SUJO="$SUJO $alvo"
             fi
           done
