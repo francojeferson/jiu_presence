@@ -235,6 +235,26 @@ test('o service worker não guarda respostas privadas do Supabase', async ({
   expect(resultado).toEqual({ corpo: [{ segredo: true }], cacheada: false });
 });
 
+/**
+ * O manifesto só habilita a instalação se os ícones que ele promete existirem
+ * de verdade. Eles já faltaram uma vez, e nada na build acusa a ausência.
+ */
+test('o manifesto entrega todos os ícones que promete', async ({ request }) => {
+  const resposta = await request.get('/manifest.json');
+  expect(resposta.ok()).toBe(true);
+
+  const manifesto = (await resposta.json()) as {
+    icons: { src: string; sizes: string }[];
+  };
+  expect(manifesto.icons.length).toBeGreaterThan(0);
+
+  for (const icone of manifesto.icons) {
+    const arquivo = await request.get(icone.src);
+    expect(arquivo.status(), icone.src).toBe(200);
+    expect(arquivo.headers()['content-type'], icone.src).toContain('image/png');
+  }
+});
+
 test.describe('chamada offline', () => {
   test.beforeEach(async ({ context }) => {
     await autenticar(context);
