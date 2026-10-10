@@ -17,6 +17,7 @@ import {
   linhaPresencaSchema,
   linhaTurmaSchema,
   validarLista,
+  type LinhaPresenca,
   type Schema,
 } from '@jiupresence/contracts';
 
@@ -24,6 +25,7 @@ import { bancoLocal, VERSAO_DO_SCHEMA_LOCAL, type BancoLocal } from '../local/db
 
 /** Quantas chamadas recentes manter localmente. */
 export const CHAMADAS_RECENTES = 60;
+const TAMANHO_DA_PAGINA = 1_000;
 
 /**
  * Recorte mínimo da consulta do PostgREST que usamos aqui.
@@ -34,8 +36,10 @@ export const CHAMADAS_RECENTES = 60;
  */
 interface ConsultaSupabase
   extends PromiseLike<{ data: unknown; error: { message: string } | null }> {
+  in(coluna: string, valores: readonly string[]): ConsultaSupabase;
   order(coluna: string, opcoes?: { ascending?: boolean }): ConsultaSupabase;
   limit(n: number): ConsultaSupabase;
+  range(inicio: number, fim: number): ConsultaSupabase;
 }
 
 export class SincronizadorDeCache {
@@ -51,15 +55,15 @@ export class SincronizadorDeCache {
    * Cache velho é melhor que cache meio atualizado.
    */
   async puxar(): Promise<void> {
-    const [turmas, alunos, matriculas, chamadas, presencas] = await Promise.all([
+    const [turmas, alunos, matriculas, chamadas] = await Promise.all([
       this.buscar('turma', linhaTurmaSchema),
       this.buscar('aluno', linhaAlunoSchema),
       this.buscar('matricula', linhaMatriculaSchema),
       this.buscar('chamada', linhaChamadaSchema, (q) =>
         q.order('data', { ascending: false }).limit(CHAMADAS_RECENTES),
       ),
-      this.buscar('presenca', linhaPresencaSchema),
     ]);
+    const presencas = await this.buscarPresencas(chamadas.map((chamada) => chamada.id));
 
     const agora = new Date().toISOString();
     const entradas = [
@@ -90,6 +94,22 @@ export class SincronizadorDeCache {
     await this.db.cache.clear();
     await this.puxar();
     return true;
+  }
+
+  private async buscarPresencas(chamadaIds: readonly string[]): Promise<LinhaPresenca[]> {
+    if (chamadaIds.length === 0) return [];
+
+    const presencas: LinhaPresenca[] = [];
+    for (let inicio = 0; ; inicio += TAMANHO_DA_PAGINA) {
+      const pagina = await this.buscar('presenca', linhaPresencaSchema, (q) =>
+        q
+          .in('chamada_id', chamadaIds)
+          .order('id')
+          .range(inicio, inicio + TAMANHO_DA_PAGINA - 1),
+      );
+      presencas.push(...pagina);
+      if (pagina.length < TAMANHO_DA_PAGINA) return presencas;
+    }
   }
 
   private async buscar<T>(
