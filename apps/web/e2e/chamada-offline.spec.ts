@@ -316,6 +316,34 @@ test.describe('chamada offline', () => {
     expect(depois.length).toBe(antes.length);
   });
 
+  test('editar depois de confirmar exige nova confirmação', async ({ page, context }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.reload();
+    await context.setOffline(true);
+
+    await page.getByRole('button', { name: /Ana Silva/ }).click();
+    await page.getByRole('button', { name: /Confirmar 1 presente/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeVisible();
+
+    // RF-14: a edição invalida a confirmação anterior, que passou a descrever
+    // uma lista diferente da que está na tela.
+    await page.getByRole('button', { name: /Bruno Costa/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeHidden();
+
+    await page.getByRole('button', { name: /Confirmar 2 presentes/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeVisible();
+
+    // A reconfirmação precisa ter gravado a lista editada, não a anterior.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /Bruno Costa/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      { timeout: 10_000 },
+    );
+  });
+
   test('o indicador mostra as pendências offline', async ({ page, context }) => {
     await page.goto('/chamada');
     await aguardarServiceWorker(page);

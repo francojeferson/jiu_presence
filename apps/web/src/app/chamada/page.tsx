@@ -71,6 +71,9 @@ export default function PaginaDeChamada(): React.ReactElement {
     if (chamada === null) return;
     try {
       setChamada(await container().chamada.alternarPresenca(chamada, alunoId as never));
+      // A confirmação anterior deixou de descrever a lista na tela: a versão
+      // editada só existe em memória até uma nova confirmação (RF-14).
+      setConfirmada(false);
     } catch (e) {
       setErro(mensagemDe(e));
     }
