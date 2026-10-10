@@ -114,6 +114,20 @@ jobs:
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
 
+      - name: Iniciar Supabase local
+        run: >-
+          pnpm exec supabase start --workdir infra
+          --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          --yes
+
+      - name: Exportar credenciais locais
+        run: >-
+          pnpm exec supabase status --workdir infra -o env
+          --override-name api.url=NEXT_PUBLIC_SUPABASE_URL
+          --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY
+          --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY
+          >> $GITHUB_ENV
+
       - name: Instalar o navegador
         run: pnpm --filter @jiupresence/web exec playwright install chromium --with-deps
 
@@ -121,6 +135,10 @@ jobs:
       # fila preservada. Nenhum teste em jsdom prova isso.
       - name: Playwright
         run: pnpm --filter @jiupresence/web run e2e
+
+      - name: Encerrar Supabase local
+        if: always()
+        run: pnpm exec supabase stop --workdir infra --no-backup
 
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -12,9 +12,9 @@
  */
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { iniciar } from '@/composicao/container';
+import { container, iniciar } from '@/composicao/container';
 import { IndicadorDeSincronizacao } from './IndicadorDeSincronizacao';
 
 const ABAS = [
@@ -25,13 +25,55 @@ const ABAS = [
 
 export function Shell({ children }: { children: React.ReactNode }): React.ReactElement {
   const caminho = usePathname();
+  const router = useRouter();
   const [pronto, setPronto] = useState(false);
+  const [sessaoConfirmada, setSessaoConfirmada] = useState(false);
+  const naTelaDeEntrada = caminho?.startsWith('/entrar') ?? false;
 
   useEffect(() => {
-    void iniciar().finally(() => setPronto(true));
-  }, []);
+    if (naTelaDeEntrada) {
+      setSessaoConfirmada(false);
+      setPronto(true);
+      return;
+    }
 
-  const naTelaDeEntrada = caminho?.startsWith('/entrar') ?? false;
+    let ativa = true;
+    setPronto(false);
+    void (async () => {
+      try {
+        const { data } = await container().supabase.auth.getSession();
+        if (data.session === null) {
+          router.replace('/entrar');
+          return;
+        }
+        if (ativa) setSessaoConfirmada(true);
+        await iniciar();
+      } catch {
+        router.replace('/entrar');
+      } finally {
+        if (ativa) setPronto(true);
+      }
+    })();
+
+    return () => {
+      ativa = false;
+    };
+  }, [naTelaDeEntrada, router]);
+
+  if (!naTelaDeEntrada && !sessaoConfirmada) {
+    return (
+      <main>
+        <div className={'esqueleto'} />
+        <span
+          role={'status'}
+          aria-live={'polite'}
+          className={'visualmente-oculto'}
+        >
+          Verificando sessão.
+        </span>
+      </main>
+    );
+  }
 
   return (
     <>

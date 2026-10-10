@@ -101,8 +101,11 @@ export class OperacoesRemotas {
     tabela: string,
     payload: Record<string, unknown>,
   ): Promise<RespostaDoServidor> {
-    const { error, status } = await this.cliente.from(tabela).insert(payload);
-    return error ? respostaDeErro(error) : { status: status || 201 };
+    const { error, status } = await this.cliente
+      .from(tabela)
+      .insert(payload)
+      .abortSignal(AbortSignal.timeout(TIMEOUT_DO_ITEM_MS));
+    return error ? respostaDeErro(error, status) : { status: status || 201 };
   }
 
   private async atualizarPorId(
@@ -113,9 +116,10 @@ export class OperacoesRemotas {
     const { error, status, count } = await this.cliente
       .from(tabela)
       .update(campos, { count: 'exact' })
-      .eq('id', id);
+      .eq('id', id)
+      .abortSignal(AbortSignal.timeout(TIMEOUT_DO_ITEM_MS));
 
-    if (error) return respostaDeErro(error);
+    if (error) return respostaDeErro(error, status);
     // Atualizar zero linhas significa que a entidade sumiu do servidor.
     if (count === 0) return { status: 404 };
     return { status: status || 204 };
@@ -129,14 +133,19 @@ export class OperacoesRemotas {
       .update({ desmatriculado_em: payload['desmatriculado_em'] })
       .eq('aluno_id', payload['aluno_id'])
       .eq('turma_id', payload['turma_id'])
-      .eq('matriculado_em', payload['matriculado_em']);
+      .eq('matriculado_em', payload['matriculado_em'])
+      .abortSignal(AbortSignal.timeout(TIMEOUT_DO_ITEM_MS));
 
-    return error ? respostaDeErro(error) : { status: status || 204 };
+    return error ? respostaDeErro(error, status) : { status: status || 204 };
   }
 
   private async remover(tabela: string, id: string): Promise<RespostaDoServidor> {
-    const { error, status } = await this.cliente.from(tabela).delete().eq('id', id);
+    const { error, status } = await this.cliente
+      .from(tabela)
+      .delete()
+      .eq('id', id)
+      .abortSignal(AbortSignal.timeout(TIMEOUT_DO_ITEM_MS));
     // Remover algo que já não existe é sucesso: o estado desejado é o atual.
-    return error ? respostaDeErro(error) : { status: status || 204 };
+    return error ? respostaDeErro(error, status) : { status: status || 204 };
   }
 }

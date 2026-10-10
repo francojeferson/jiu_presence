@@ -30,8 +30,13 @@ export type TipoDeOperacao =
 export type EstadoDoItem = 'pendente' | 'enviando' | 'falha_permanente';
 
 export interface ItemDaFila {
-  /** UUID v7. É também a chave de idempotência enviada ao servidor (D-08). */
+  /** Identifica esta operação específica para conclusão e retry. */
   id: string;
+  /**
+   * Identifica o fato remoto. Ausente apenas em itens gravados por versões
+   * anteriores, nas quais id acumulava as duas responsabilidades.
+   */
+  chaveDeIdempotencia?: string;
   tipo: TipoDeOperacao;
   payload: unknown;
   /** Data real do evento, nunca a do envio (RF-31). */

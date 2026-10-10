@@ -11,7 +11,11 @@
 
 import type { EstadoDeSincronizacao, Sincronizador as PortaSincronizador } from '@jiupresence/domain';
 
-import { Outbox, observarFila } from '../local/outbox.js';
+import {
+  Outbox,
+  esperaParaTentativa,
+  observarFila,
+} from '../local/outbox.js';
 import { bancoLocal, type BancoLocal } from '../local/db.js';
 import { classificar, mensagemParaOProfessor } from './classificacao.js';
 import type { MonitorDeConectividade } from './conectividade.js';
@@ -32,6 +36,9 @@ export interface ResultadoDaRodada {
 export class SincronizadorOutbox implements PortaSincronizador {
   private readonly outbox: Outbox;
   private rodando = false;
+  private iniciada = false;
+  private rodadaSolicitada = false;
+  private retentativa: ReturnType<typeof setTimeout> | null = null;
   private ouvintes = new Set<(estado: EstadoDeSincronizacao) => void>();
 
   constructor(
@@ -47,12 +54,19 @@ export class SincronizadorOutbox implements PortaSincronizador {
    * (RF-26: sem ação do professor).
    */
   async iniciar(): Promise<void> {
+    if (this.iniciada) return;
+    this.iniciada = true;
+
     // Itens presos em 'enviando' por encerramento abrupto do app voltam
     // para a fila. Sem isso, uma chamada ficaria travada para sempre.
     await this.outbox.destravar();
 
     this.conectividade.observar((online) => {
       if (online) void this.sincronizarAgora();
+    });
+    observarFila((mudanca) => {
+      if (mudanca !== 'enfileiramento' || !this.conectividade.online) return;
+      setTimeout(() => void this.sincronizarAgora(), 0);
     });
     this.conectividade.iniciar();
 
@@ -73,7 +87,15 @@ export class SincronizadorOutbox implements PortaSincronizador {
   }
 
   async sincronizarAgora(): Promise<void> {
-    await this.rodada();
+    if (this.rodando) {
+      this.rodadaSolicitada = true;
+      return;
+    }
+
+    do {
+      this.rodadaSolicitada = false;
+      await this.rodada();
+    } while (this.rodadaSolicitada);
   }
 
   async rodada(agora: Date = new Date()): Promise<ResultadoDaRodada> {
@@ -132,6 +154,7 @@ export class SincronizadorOutbox implements PortaSincronizador {
           mensagemParaOProfessor(resposta, item.tipo),
           agora,
         );
+        this.agendarRetentativa(item.tentativas + 1);
         adiados += 1;
         motivo = 'falha-transitoria';
         break;
@@ -176,5 +199,14 @@ export class SincronizadorOutbox implements PortaSincronizador {
     if (this.ouvintes.size === 0) return;
     const estado = await this.estado();
     for (const ouvinte of this.ouvintes) ouvinte(estado);
+  }
+
+  private agendarRetentativa(tentativa: number): void {
+    if (!this.iniciada) return;
+    if (this.retentativa !== null) clearTimeout(this.retentativa);
+    this.retentativa = setTimeout(() => {
+      this.retentativa = null;
+      if (this.conectividade.online) void this.sincronizarAgora();
+    }, esperaParaTentativa(tentativa));
   }
 }

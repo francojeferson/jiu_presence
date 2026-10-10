@@ -1,4 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+} from '@playwright/test';
+import { criarCliente } from '@jiupresence/infrastructure';
 
 /**
  * O cenário crítico da feature 001.
@@ -7,11 +13,8 @@ import { expect, test, type Page } from '@playwright/test';
  * instalar, ficar offline, fazer a chamada, recarregar, voltar a rede,
  * confirmar que a presença subiu COM A DATA DA AULA.
  *
- * ⚠️ ESTADO: o fluxo offline de ponta a ponta é verificado contra o
- * IndexedDB local. A etapa final — confirmar a chegada ao Supabase — exige
- * um projeto real com as migrações aplicadas e está marcada como `fixme`.
- * Ela faz parte do critério CV-03 do descomissionamento e precisa ser
- * executada manualmente até haver um ambiente de teste provisionado.
+ * O fluxo local roda sempre. Com o Supabase local ativo, o cenário final
+ * também valida RLS, reconexão, envio e recarga contra o servidor real.
  */
 
 /** Semeia o cache local, substituindo a sincronização com o servidor. */
@@ -130,7 +133,80 @@ async function aguardarServiceWorker(page: Page): Promise<void> {
   });
 }
 
+async function autenticar(context: BrowserContext): Promise<void> {
+  const url =
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? 'https://exemplo.supabase.co';
+  const chaveDoStorage =
+    'sb-' + new URL(url).hostname.split('.')[0] + '-auth-token';
+
+  await context.addInitScript((chave) => {
+    const codificar = (valor: object): string =>
+      btoa(JSON.stringify(valor))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replace(/=+$/, '');
+    const operadorId = '01930000-0000-7000-8000-0000000000ff';
+    const expiraEm = 4_102_444_800;
+    const accessToken = [
+      codificar({ alg: 'HS256', typ: 'JWT' }),
+      codificar({
+        aud: 'authenticated',
+        exp: expiraEm,
+        sub: operadorId,
+        email: 'professor@example.com',
+        role: 'authenticated',
+      }),
+      'assinatura',
+    ].join('.');
+
+    localStorage.setItem(
+      chave,
+      JSON.stringify({
+        access_token: accessToken,
+        token_type: 'bearer',
+        expires_in: expiraEm - Math.floor(Date.now() / 1000),
+        expires_at: expiraEm,
+        refresh_token: 'refresh-de-teste',
+        user: {
+          id: operadorId,
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: 'professor@example.com',
+          app_metadata: { provider: 'email', providers: ['email'] },
+          user_metadata: {},
+          identities: [],
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+        },
+      }),
+    );
+  }, chaveDoStorage);
+}
+
+function ambienteSupabase():
+  | { url: string; chaveAnonima: string; chaveDeServico: string }
+  | null {
+  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'];
+  const chaveAnonima = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+  const chaveDeServico = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  return url && chaveAnonima && chaveDeServico
+    ? { url, chaveAnonima, chaveDeServico }
+    : null;
+}
+
+test('uma rota privada exige sessão', async ({ page }) => {
+  await page.goto('/chamada');
+
+  await expect(page).toHaveURL(/\/entrar$/);
+  await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chamada' })).toHaveCount(0);
+});
+
 test.describe('chamada offline', () => {
+  test.beforeEach(async ({ context }) => {
+    await autenticar(context);
+  });
+
   test('o shell abre sem rede', async ({ page, context }) => {
     await page.goto('/chamada');
     await expect(page.getByRole('heading', { name: 'Chamada' })).toBeVisible();
@@ -218,15 +294,178 @@ test.describe('chamada offline', () => {
     await page.getByRole('button', { name: /Confirmar/ }).click();
 
     // RF-29: visível em qualquer tela, sem interação adicional.
-    await expect(page.getByText(/aguardando envio/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/aguardando envio/)).toBeVisible({
+      timeout: 10_000,
+    });
   });
+});
 
-  test.fixme(
-    'a presença chega ao Supabase com a data da aula',
-    async () => {
-      // CV-03 do descomissionamento. Exige um projeto Supabase real com as
-      // migrações aplicadas e uma conta de operador provisionada.
-      // Até lá, o roteiro manual de onboarding.md §5.4 é o que vale.
-    },
-  );
+test('RLS e sincronização funcionam contra o Supabase local', async ({
+  page,
+  context,
+}) => {
+  const ambiente = ambienteSupabase();
+  test.skip(ambiente === null, 'Supabase local não está ativo.');
+  if (ambiente === null) return;
+
+  const admin = criarCliente({
+    url: ambiente.url,
+    chaveAnonima: ambiente.chaveDeServico,
+  });
+  const sufixo = crypto.randomUUID();
+  const senha = 'Senha-de-teste-123!';
+  const emailSemAcesso = 'sem-acesso-' + sufixo + '@example.com';
+  const emailOperador = 'operador-' + sufixo + '@example.com';
+  const turmaId = crypto.randomUUID();
+  const alunoA = crypto.randomUUID();
+  const alunoB = crypto.randomUUID();
+  let usuarioSemAcessoId: string | undefined;
+  let operadorId: string | undefined;
+
+  try {
+    const contaSemAcesso = await admin.auth.admin.createUser({
+      email: emailSemAcesso,
+      password: senha,
+      email_confirm: true,
+    });
+    expect(contaSemAcesso.error).toBeNull();
+    usuarioSemAcessoId = contaSemAcesso.data.user!.id;
+
+    const semAcesso = criarCliente({
+      url: ambiente.url,
+      chaveAnonima: ambiente.chaveAnonima,
+    });
+    expect(
+      (await semAcesso.auth.signInWithPassword({
+        email: emailSemAcesso,
+        password: senha,
+      })).error,
+    ).toBeNull();
+    const leituraNegada = await semAcesso.from('aluno').select('id');
+    expect(leituraNegada.error).toBeNull();
+    expect(leituraNegada.data).toEqual([]);
+    const autoprovimento = await semAcesso.from('operador').insert({
+      id: usuarioSemAcessoId,
+      email: emailSemAcesso,
+      nome: 'Não autorizado',
+    });
+    expect(autoprovimento.error?.code).toBe('42501');
+
+    const contaOperador = await admin.auth.admin.createUser({
+      email: emailOperador,
+      password: senha,
+      email_confirm: true,
+    });
+    expect(contaOperador.error).toBeNull();
+    operadorId = contaOperador.data.user!.id;
+
+    expect(
+      (await admin.from('operador').insert({
+        id: operadorId,
+        email: emailOperador,
+        nome: 'Professor E2E',
+      })).error,
+    ).toBeNull();
+    expect(
+      (await admin.from('turma').insert({
+        id: turmaId,
+        nome: 'Turma Supabase',
+        dias_semana: [0, 1, 2, 3, 4, 5, 6],
+        horario: '19:00',
+        ativa: true,
+      })).error,
+    ).toBeNull();
+    expect(
+      (await admin.from('aluno').insert([
+        {
+          id: alunoA,
+          nome: 'Ana Supabase',
+          escala: 'adulta',
+          faixa_atual: 'azul',
+          ativo: true,
+        },
+        {
+          id: alunoB,
+          nome: 'Bruno Supabase',
+          escala: 'adulta',
+          faixa_atual: 'branca',
+          ativo: true,
+        },
+      ])).error,
+    ).toBeNull();
+    expect(
+      (await admin.from('matricula').insert([
+        {
+          aluno_id: alunoA,
+          turma_id: turmaId,
+          matriculado_em: '2026-01-01',
+        },
+        {
+          aluno_id: alunoB,
+          turma_id: turmaId,
+          matriculado_em: '2026-01-01',
+        },
+      ])).error,
+    ).toBeNull();
+
+    await page.goto('/entrar');
+    await page.getByLabel('Email').fill(emailOperador);
+    await page.getByLabel('Senha').fill(senha);
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page).toHaveURL(/\/chamada$/);
+    await expect(page.getByRole('button', { name: /Ana Supabase/ })).toBeVisible();
+    const dataDaAula = await page.evaluate(() =>
+      new Date().toLocaleDateString('sv-SE', {
+        timeZone: 'America/Sao_Paulo',
+      }),
+    );
+
+    await context.setOffline(true);
+    await page.getByRole('button', { name: /Ana Supabase/ }).click();
+    await page.getByRole('button', { name: /Confirmar 1 presente/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeVisible();
+    expect(await itensNaFila(page)).not.toHaveLength(0);
+
+    await context.setOffline(false);
+    let chamadaId: string | undefined;
+    await expect
+      .poll(
+        async () => {
+          const { data } = await admin
+            .from('chamada')
+            .select('id, data')
+            .eq('turma_id', turmaId)
+            .maybeSingle();
+          chamadaId = data?.id;
+          return data?.data;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(dataDaAula);
+    await expect
+      .poll(async () => {
+        const { data } = await admin
+          .from('presenca')
+          .select('aluno_id')
+          .eq('chamada_id', chamadaId!);
+        return data?.map((item) => item.aluno_id);
+      })
+      .toEqual([alunoA]);
+    await expect.poll(async () => (await itensNaFila(page)).length).toBe(0);
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: /Ana Supabase/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  } finally {
+    await admin.from('chamada').delete().eq('turma_id', turmaId);
+    await admin.from('matricula').delete().eq('turma_id', turmaId);
+    await admin.from('aluno').delete().in('id', [alunoA, alunoB]);
+    await admin.from('turma').delete().eq('id', turmaId);
+    if (operadorId) await admin.auth.admin.deleteUser(operadorId);
+    if (usuarioSemAcessoId) {
+      await admin.auth.admin.deleteUser(usuarioSemAcessoId);
+    }
+  }
 });

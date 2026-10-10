@@ -1,5 +1,5 @@
 import './setup.js';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BancoLocal, type ItemDaFila } from '../src/local/db.js';
 import { Outbox } from '../src/local/outbox.js';
 import { SincronizadorOutbox, type EnvioRemoto } from '../src/sync/sincronizador.js';
@@ -41,10 +41,25 @@ async function enfileirarTres(): Promise<[string, string, string]> {
   const a = id();
   const b = id();
   const c = id();
-  await outbox.enfileirar(a, 'criar_aluno', { id: a }, AGORA.toISOString());
-  await outbox.enfileirar(b, 'criar_chamada', { id: b }, AGORA.toISOString());
-  await outbox.enfileirar(c, 'criar_presenca', { id: c }, AGORA.toISOString());
-  return [a, b, c];
+  const itemA = await outbox.enfileirar(
+    a,
+    'criar_aluno',
+    { id: a },
+    AGORA.toISOString(),
+  );
+  const itemB = await outbox.enfileirar(
+    b,
+    'criar_chamada',
+    { id: b },
+    AGORA.toISOString(),
+  );
+  const itemC = await outbox.enfileirar(
+    c,
+    'criar_presenca',
+    { id: c },
+    AGORA.toISOString(),
+  );
+  return [itemA, itemB, itemC];
 }
 
 function montar(respostas: RespostaDoServidor[], online = true) {
@@ -222,6 +237,42 @@ describe('SincronizadorOutbox', () => {
   });
 
   describe('conectividade', () => {
+    it('envia um item criado enquanto já está online', async () => {
+      const { remoto, sinc } = montar([{ status: 201 }]);
+      await sinc.iniciar();
+
+      const alunoId = id();
+      await outbox.enfileirar(
+        alunoId,
+        'criar_aluno',
+        { id: alunoId },
+        AGORA.toISOString(),
+      );
+
+      await vi.waitFor(() => expect(remoto.recebidos).toHaveLength(1));
+      expect(await outbox.pendentes()).toBe(0);
+    });
+
+    it('retenta automaticamente depois da espera', async () => {
+      const { remoto, sinc } = montar([{ status: 503 }, { status: 201 }]);
+      await sinc.iniciar();
+
+      const alunoId = id();
+      await outbox.enfileirar(
+        alunoId,
+        'criar_aluno',
+        { id: alunoId },
+        new Date().toISOString(),
+      );
+
+      await vi.waitFor(() => expect(remoto.recebidos).toHaveLength(1));
+      await vi.waitFor(
+        () => expect(remoto.recebidos).toHaveLength(2),
+        { timeout: 3_000 },
+      );
+      expect(await outbox.pendentes()).toBe(0);
+    });
+
     it('resposta do servidor prova que há internet real', async () => {
       // navigator.onLine mente em portal cativo. A verdade é o resultado.
       await enfileirarTres();

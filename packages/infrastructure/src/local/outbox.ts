@@ -39,15 +39,19 @@ export function esperaParaTentativa(tentativa: number): number {
  * Módulo-level e não por instância: `Outbox` é criado em vários pontos
  * (repositórios, sincronizador, tela de pendências) sobre o mesmo banco.
  */
-const ouvintesDaFila = new Set<() => void>();
+export type MudancaNaFila = 'enfileiramento' | 'estado';
 
-export function observarFila(ouvinte: () => void): () => void {
+const ouvintesDaFila = new Set<(mudanca: MudancaNaFila) => void>();
+
+export function observarFila(
+  ouvinte: (mudanca: MudancaNaFila) => void,
+): () => void {
   ouvintesDaFila.add(ouvinte);
   return () => ouvintesDaFila.delete(ouvinte);
 }
 
-function filaMudou(): void {
-  for (const ouvinte of ouvintesDaFila) ouvinte();
+function filaMudou(mudanca: MudancaNaFila): void {
+  for (const ouvinte of ouvintesDaFila) ouvinte(mudanca);
 }
 
 export class Outbox {
@@ -56,20 +60,21 @@ export class Outbox {
   /**
    * Enfileira uma operação.
    *
-   * @param id       UUID v7 da ENTIDADE criada, que serve como chave de
-   *                 idempotência. Gerado no domínio, não aqui.
+   * @param chaveDeIdempotencia identificador estável do fato remoto.
    * @param criadoEm data real do evento. Para uma chamada, é o instante da
    *                 aula, não o do envio.
    */
   async enfileirar(
-    id: string,
+    chaveDeIdempotencia: string,
     tipo: TipoDeOperacao,
     payload: unknown,
     criadoEm: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const ordem = await this.proximaOrdem();
+    const id = globalThis.crypto.randomUUID();
     await this.db.outbox.put({
       id,
+      chaveDeIdempotencia,
       tipo,
       payload,
       criadoEm,
@@ -79,7 +84,8 @@ export class Outbox {
       estado: 'pendente',
       erro: null,
     });
-    filaMudou();
+    filaMudou('enfileiramento');
+    return id;
   }
 
   /**
@@ -104,13 +110,15 @@ export class Outbox {
       .equals('pendente' satisfies EstadoDoItem)
       .toArray();
 
-    return todos
-      .filter(
-        (i) =>
-          i.proximaTentativaEm === null ||
-          Date.parse(i.proximaTentativaEm) <= agora.getTime(),
-      )
-      .sort((a, b) => a.ordem - b.ordem);
+    const ordenados = todos.sort((a, b) => a.ordem - b.ordem);
+    const primeiroAindaEmEspera = ordenados.findIndex(
+      (i) =>
+        i.proximaTentativaEm !== null &&
+        Date.parse(i.proximaTentativaEm) > agora.getTime(),
+    );
+    return primeiroAindaEmEspera < 0
+      ? ordenados
+      : ordenados.slice(0, primeiroAindaEmEspera);
   }
 
   async pendentes(): Promise<number> {
@@ -131,7 +139,7 @@ export class Outbox {
   /** Sucesso: o item sai da fila. Também cobre o sucesso idempotente. */
   async concluir(id: string): Promise<void> {
     await this.db.outbox.delete(id);
-    filaMudou();
+    filaMudou('estado');
   }
 
   /** Transitório: volta à fila com espera crescente. Nunca é descartado. */
@@ -147,7 +155,7 @@ export class Outbox {
         agora.getTime() + esperaParaTentativa(tentativas),
       ).toISOString(),
     });
-    filaMudou();
+    filaMudou('estado');
   }
 
   /**
@@ -160,7 +168,7 @@ export class Outbox {
       erro,
       proximaTentativaEm: null,
     });
-    filaMudou();
+    filaMudou('estado');
   }
 
   /** Recoloca um item que havia falhado permanentemente, por decisão do usuário. */
@@ -171,7 +179,7 @@ export class Outbox {
       erro: null,
       proximaTentativaEm: null,
     });
-    filaMudou();
+    filaMudou('estado');
   }
 
   /**
@@ -201,7 +209,7 @@ export class Outbox {
     for (const item of travados) {
       await this.db.outbox.update(item.id, { estado: 'pendente' });
     }
-    if (travados.length > 0) filaMudou();
+    if (travados.length > 0) filaMudou('estado');
     return travados.length;
   }
 }

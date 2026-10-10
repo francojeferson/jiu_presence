@@ -45,6 +45,7 @@ export interface Container {
 }
 
 let instancia: Container | null = null;
+let inicializacao: Promise<void> | null = null;
 
 export function container(): Container {
   if (instancia !== null) return instancia;
@@ -109,7 +110,15 @@ export function container(): Container {
  * Se a rede estiver instável, o que já foi registrado pelo professor sobe
  * primeiro; atualizar o cache é secundário.
  */
-export async function iniciar(): Promise<void> {
+export function iniciar(): Promise<void> {
+  inicializacao ??= executarInicializacao().catch((erro: unknown) => {
+    inicializacao = null;
+    throw erro;
+  });
+  return inicializacao;
+}
+
+async function executarInicializacao(): Promise<void> {
   const c = container();
 
   // Reduz a chance de o navegador despejar o armazenamento sob pressão de
@@ -131,4 +140,5 @@ export async function iniciar(): Promise<void> {
 /** Apenas para teste: descarta o container memoizado. */
 export function redefinirContainer(): void {
   instancia = null;
+  inicializacao = null;
 }

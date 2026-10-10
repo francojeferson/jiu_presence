@@ -13,7 +13,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { container } from '@/composicao/container';
+import { container, iniciar } from '@/composicao/container';
 
 export default function PaginaDeEntrada(): React.ReactElement {
   const router = useRouter();
@@ -36,6 +36,7 @@ export default function PaginaDeEntrada(): React.ReactElement {
         setErro('Email ou senha incorretos.');
         return;
       }
+      await iniciar();
       router.replace('/chamada');
     } catch {
       setErro(

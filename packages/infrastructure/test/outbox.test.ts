@@ -30,7 +30,7 @@ describe('Outbox', () => {
       await outbox.enfileirar(c, 'criar_presenca', {}, '2026-10-04T10:00:02Z');
 
       const prontos = await outbox.prontos();
-      expect(prontos.map((i) => i.id)).toEqual([a, b, c]);
+      expect(prontos.map((i) => i.chaveDeIdempotencia)).toEqual([a, b, c]);
     });
 
     it('a ordem não depende do relógio do dispositivo', async () => {
@@ -42,18 +42,45 @@ describe('Outbox', () => {
       await outbox.enfileirar(segundo, 'criar_chamada', {}, '2020-01-01T00:00:00Z');
 
       const prontos = await outbox.prontos();
-      expect(prontos.map((i) => i.id)).toEqual([primeiro, segundo]);
+      expect(prontos.map((i) => i.chaveDeIdempotencia)).toEqual([
+        primeiro,
+        segundo,
+      ]);
     });
 
     it('o sequencial continua crescendo após remoções', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_aluno', {}, '2026-10-04T10:00:00Z');
-      await outbox.concluir(a);
+      const itemA = await outbox.enfileirar(
+        a,
+        'criar_aluno',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.concluir(itemA);
 
       const b = id();
       await outbox.enfileirar(b, 'criar_chamada', {}, '2026-10-04T10:00:01Z');
       const prontos = await outbox.prontos();
       expect(prontos[0]!.ordem).toBeGreaterThan(1);
+    });
+
+    it('não ultrapassa o item mais antigo ainda em espera', async () => {
+      const agora = new Date('2026-10-04T10:00:00Z');
+      const primeiro = await outbox.enfileirar(
+        id(),
+        'criar_chamada',
+        {},
+        agora.toISOString(),
+      );
+      await outbox.adiar(primeiro, 'timeout', agora);
+      await outbox.enfileirar(
+        id(),
+        'criar_presenca',
+        {},
+        agora.toISOString(),
+      );
+
+      expect(await outbox.prontos(agora)).toHaveLength(0);
     });
   });
 
@@ -81,7 +108,7 @@ describe('Outbox', () => {
       const prontos = await outboxReaberto.prontos();
 
       expect(prontos).toHaveLength(1);
-      expect(prontos[0]!.id).toBe(a);
+      expect(prontos[0]!.chaveDeIdempotencia).toBe(a);
       expect(prontos[0]!.payload).toEqual({ x: 1 });
     });
   });
@@ -90,9 +117,14 @@ describe('Outbox', () => {
     it('mantém o item na fila e agenda nova tentativa', async () => {
       const a = id();
       const agora = new Date('2026-10-04T10:00:00Z');
-      await outbox.enfileirar(a, 'criar_chamada', {}, agora.toISOString());
-      await outbox.marcarEnviando(a);
-      await outbox.adiar(a, 'timeout', agora);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        agora.toISOString(),
+      );
+      await outbox.marcarEnviando(item);
+      await outbox.adiar(item, 'timeout', agora);
 
       const todos = await db.outbox.toArray();
       expect(todos).toHaveLength(1);
@@ -104,8 +136,13 @@ describe('Outbox', () => {
     it('o item adiado não é entregue antes da hora', async () => {
       const a = id();
       const agora = new Date('2026-10-04T10:00:00Z');
-      await outbox.enfileirar(a, 'criar_chamada', {}, agora.toISOString());
-      await outbox.adiar(a, 'timeout', agora);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        agora.toISOString(),
+      );
+      await outbox.adiar(item, 'timeout', agora);
 
       expect(await outbox.prontos(agora)).toHaveLength(0);
 
@@ -128,13 +165,18 @@ describe('Outbox', () => {
       // significaria perder uma chamada que o professor deu por registrada.
       const a = id();
       const agora = new Date('2026-10-04T10:00:00Z');
-      await outbox.enfileirar(a, 'criar_chamada', {}, agora.toISOString());
+      const chave = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        agora.toISOString(),
+      );
 
       for (let i = 0; i < 100; i += 1) {
-        await outbox.adiar(a, 'rede indisponível', agora);
+        await outbox.adiar(chave, 'rede indisponível', agora);
       }
 
-      const item = await db.outbox.get(a);
+      const item = await db.outbox.get(chave);
       expect(item).toBeDefined();
       expect(item!.estado).toBe('pendente');
       expect(item!.tentativas).toBe(100);
@@ -145,8 +187,16 @@ describe('Outbox', () => {
     it('sai da fila ativa mas não é descartada', async () => {
       // RF-11: falha permanente é visível, explicada e acionável.
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
-      await outbox.marcarFalhaPermanente(a, 'Já existe chamada para esta data.');
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarFalhaPermanente(
+        item,
+        'Já existe chamada para esta data.',
+      );
 
       expect(await outbox.prontos()).toHaveLength(0);
 
@@ -157,9 +207,14 @@ describe('Outbox', () => {
 
     it('pode ser reativada por decisão do usuário', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
-      await outbox.marcarFalhaPermanente(a, 'erro');
-      await outbox.reativar(a);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarFalhaPermanente(item, 'erro');
+      await outbox.reativar(item);
 
       expect(await outbox.prontos()).toHaveLength(1);
       expect(await outbox.falhasPermanentes()).toHaveLength(0);
@@ -168,9 +223,14 @@ describe('Outbox', () => {
     it('não entra na contagem de pendentes', async () => {
       const a = id();
       const b = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
+      const itemA = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
       await outbox.enfileirar(b, 'criar_presenca', {}, '2026-10-04T10:00:01Z');
-      await outbox.marcarFalhaPermanente(a, 'erro');
+      await outbox.marcarFalhaPermanente(itemA, 'erro');
 
       expect(await outbox.pendentes()).toBe(1);
     });
@@ -179,43 +239,78 @@ describe('Outbox', () => {
   describe('concorrência (EC-08)', () => {
     it('detecta item em voo', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
       expect(await outbox.temItemEmVoo()).toBe(false);
-      await outbox.marcarEnviando(a);
+      await outbox.marcarEnviando(item);
       expect(await outbox.temItemEmVoo()).toBe(true);
     });
 
     it('item em voo não é entregue de novo', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
-      await outbox.marcarEnviando(a);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarEnviando(item);
       expect(await outbox.prontos()).toHaveLength(0);
     });
 
     it('destrava itens presos por encerramento abrupto do app', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
-      await outbox.marcarEnviando(a);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarEnviando(item);
 
       expect(await outbox.destravar()).toBe(1);
       expect(await outbox.prontos()).toHaveLength(1);
     });
   });
 
-  describe('idempotência', () => {
-    it('enfileirar o mesmo id duas vezes não duplica', async () => {
+  describe('identidade da operação', () => {
+    it('preserva create e update da mesma entidade como operações distintas', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', { v: 1 }, '2026-10-04T10:00:00Z');
-      await outbox.enfileirar(a, 'criar_chamada', { v: 2 }, '2026-10-04T10:00:00Z');
+      const criar = await outbox.enfileirar(
+        a,
+        'criar_aluno',
+        { v: 1 },
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarEnviando(criar);
+      const atualizar = await outbox.enfileirar(
+        a,
+        'atualizar_aluno',
+        { v: 2 },
+        '2026-10-04T10:00:01Z',
+      );
 
       const todos = await db.outbox.toArray();
-      expect(todos).toHaveLength(1);
+      expect(todos).toHaveLength(2);
+      expect(criar).not.toBe(atualizar);
+
+      await outbox.concluir(criar);
+      expect(await db.outbox.get(atualizar)).toBeDefined();
     });
 
     it('concluir remove o item', async () => {
       const a = id();
-      await outbox.enfileirar(a, 'criar_chamada', {}, '2026-10-04T10:00:00Z');
-      await outbox.concluir(a);
+      const item = await outbox.enfileirar(
+        a,
+        'criar_chamada',
+        {},
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.concluir(item);
       expect(await db.outbox.count()).toBe(0);
     });
 
