@@ -125,9 +125,11 @@ export class SincronizadorOutbox implements PortaSincronizador {
         await this.outbox.marcarEnviando(item.id);
         const resposta = await this.remoto.enviar(item);
 
-        // Resposta do servidor, qualquer que seja o código, prova que há
-        // internet real. Status 0 significa que a requisição nem saiu.
-        this.conectividade.registrarResultado(resposta.status > 0);
+        // Resposta do servidor prova que há internet; validação local não diz
+        // nada sobre a rede.
+        if (resposta.codigo !== 'PAYLOAD_INVALIDO') {
+          this.conectividade.registrarResultado(resposta.status > 0);
+        }
 
         const classe = classificar(resposta, item.tipo);
 

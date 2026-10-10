@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ItemDaFila } from '../src/local/db.js';
 import { OperacoesRemotas } from '../src/supabase/operacoes.js';
@@ -24,10 +24,21 @@ describe('OperacoesRemotas', () => {
     const cliente = {
       from: () => ({ insert: () => consulta }),
     } as unknown as SupabaseClient;
+    const alunoId = crypto.randomUUID();
     const item: ItemDaFila = {
       id: crypto.randomUUID(),
       tipo: 'criar_aluno',
-      payload: { id: crypto.randomUUID() },
+      payload: {
+        id: alunoId,
+        nome: 'Ana',
+        data_nascimento: null,
+        escala: 'adulta',
+        faixa_atual: 'azul',
+        data_ultima_graduacao: null,
+        ativo: true,
+        criado_em: '2026-10-09T12:00:00Z',
+        atualizado_em: '2026-10-09T12:00:00Z',
+      },
       criadoEm: '2026-10-09T12:00:00Z',
       ordem: 1,
       tentativas: 0,
@@ -40,6 +51,36 @@ describe('OperacoesRemotas', () => {
 
     expect(resposta.status).toBe(503);
     expect(sinal).toBeInstanceOf(AbortSignal);
+  });
+
+  it.each([
+    ['excluir_aluno' as const, {}],
+    [
+      'operacao_desconhecida' as ItemDaFila['tipo'],
+      { id: crypto.randomUUID() },
+    ],
+  ] as const)('recusa %s sem chamar o Supabase', async (tipo, payload) => {
+    const from = vi.fn();
+    const cliente = { from } as unknown as SupabaseClient;
+    const item: ItemDaFila = {
+      id: crypto.randomUUID(),
+      tipo,
+      payload,
+      criadoEm: '2026-10-09T12:00:00Z',
+      ordem: 1,
+      tentativas: 0,
+      proximaTentativaEm: null,
+      estado: 'pendente',
+      erro: null,
+    };
+
+    const resposta = await new OperacoesRemotas(cliente).enviar(item);
+
+    expect(resposta).toMatchObject({
+      status: 422,
+      codigo: 'PAYLOAD_INVALIDO',
+    });
+    expect(from).not.toHaveBeenCalled();
   });
 
   it.each([

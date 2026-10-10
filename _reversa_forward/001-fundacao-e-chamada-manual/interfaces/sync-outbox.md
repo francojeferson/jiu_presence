@@ -17,6 +17,7 @@ Define o protocolo entre o outbox local e o Supabase. Não é uma API própria �
 | Ordenação | Campo `ordem` monotônico local; envio estritamente sequencial |
 | Durabilidade | Item só sai do outbox após resposta de sucesso ou classificação como falha permanente |
 | Preservação temporal | `criado_em` é a data do evento; o servidor nunca substitui por `now()` em campos de negócio |
+| Validação de fronteira | Payload é validado pelo schema do tipo antes de qualquer requisição |
 
 ## 3. Operações
 
@@ -117,7 +118,7 @@ transitório  → permanece no outbox, retenta com espera exponencial
                rede, timeout, 401, 5xx, 429, violação temporária de FK
 
 permanente   → sai do outbox ativo, vai para a lista de falhas
-               404, 400 por validação, 409 de conflito real de negócio
+               404, 400/422 por validação, 409 de conflito real de negócio
                nunca descartado em silêncio; exige decisão do professor
 
 sucesso      → removido do outbox
@@ -146,6 +147,8 @@ enquanto houver item pendente com proxima_tentativa_em <= agora:
   item := o de menor `ordem`
   se já existe item em estado 'enviando': aguardar        # EC-08: sem concorrência
   marcar item como 'enviando'
+  validar payload pelo schema do tipo
+    se inválido -> marcar falha permanente, sem acessar a rede; continuar
   enviar
   classificar a resposta
     sucesso    -> remover do outbox
@@ -158,7 +161,7 @@ enquanto houver item pendente com proxima_tentativa_em <= agora:
 
 ## 7. Detecção de conectividade
 
-🟡 O status da interface de rede **não** é confiável: portal cativo reporta conectado sem internet real (EC-01 de `sincronizacao-offline-first`). A verdade vem da requisição em si. O evento de reconexão serve apenas como gatilho para tentar; a confirmação vem do resultado.
+🟡 O status da interface de rede **não** é confiável: portal cativo reporta conectado sem internet real (EC-01 de `sincronizacao-offline-first`). A verdade vem da requisição em si. O evento de reconexão serve apenas como gatilho para tentar; a confirmação vem do resultado. Falha de validação local não altera o estado de conectividade.
 
 ## 8. Autenticação
 

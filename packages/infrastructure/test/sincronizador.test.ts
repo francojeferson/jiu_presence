@@ -263,6 +263,25 @@ describe('SincronizadorOutbox', () => {
   });
 
   describe('conectividade', () => {
+    it('erro de validação local não altera o estado da rede', async () => {
+      const alunoId = id();
+      await outbox.enfileirar(
+        alunoId,
+        'excluir_aluno',
+        {},
+        AGORA.toISOString(),
+      );
+      const { monitor, sinc } = montar([
+        { status: 422, codigo: 'PAYLOAD_INVALIDO' },
+      ]);
+      monitor.registrarResultado(false);
+
+      await sinc.rodada(AGORA);
+
+      expect(monitor.online).toBe(false);
+      expect(await outbox.falhasPermanentes()).toHaveLength(1);
+    });
+
     it('envia um item criado enquanto já está online', async () => {
       const { remoto, sinc } = montar([{ status: 201 }]);
       await sinc.iniciar();

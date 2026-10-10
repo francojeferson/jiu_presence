@@ -7,6 +7,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { validarPayloadDaOutbox } from '@jiupresence/contracts';
 import type { ItemDaFila, TipoDeOperacao } from '../local/db.js';
 import type { RespostaDoServidor } from '../sync/classificacao.js';
 
@@ -66,8 +67,11 @@ export class OperacoesRemotas {
   constructor(private readonly cliente: SupabaseClient) {}
 
   async enviar(item: ItemDaFila): Promise<RespostaDoServidor> {
+    const payload = validarPayloadDaOutbox(item.tipo, item.payload);
+    if (payload === null) {
+      return { status: 422, codigo: 'PAYLOAD_INVALIDO' };
+    }
     const tabela = TABELA_POR_TIPO[item.tipo];
-    const payload = item.payload as Record<string, unknown>;
 
     try {
       switch (item.tipo) {

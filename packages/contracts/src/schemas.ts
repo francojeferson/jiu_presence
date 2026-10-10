@@ -116,6 +116,19 @@ export const payloadPorTipo = {
 
 export type TipoDePayload = keyof typeof payloadPorTipo;
 
+/** Valida e normaliza um payload persistido sem expor Zod às outras camadas. */
+export function validarPayloadDaOutbox(
+  tipo: string,
+  payload: unknown,
+): Record<string, unknown> | null {
+  if (!Object.hasOwn(payloadPorTipo, tipo)) return null;
+  const schema = payloadPorTipo[tipo as TipoDePayload] as z.ZodTypeAny;
+  const resultado = schema.safeParse(payload);
+  return resultado.success
+    ? (resultado.data as Record<string, unknown>)
+    : null;
+}
+
 // -------------------------------------------------------- entrada das telas
 
 export const entradaDeAlunoSchema = z

@@ -117,6 +117,15 @@ describe('classificação da resposta do servidor', () => {
   });
 
   describe('mensagem para o professor', () => {
+    it('explica uma pendência local corrompida sem expor detalhes técnicos', () => {
+      const msg = mensagemParaOProfessor(
+        { status: 422, codigo: 'PAYLOAD_INVALIDO' },
+        'criar_aluno',
+      );
+      expect(msg).toMatch(/pendência.*corrompida/i);
+      expect(msg).not.toContain('PAYLOAD_INVALIDO');
+    });
+
     it('traduz o conflito de chamada duplicada', () => {
       const msg = mensagemParaOProfessor(
         conflito('chamada_unica_por_turma_e_data'),

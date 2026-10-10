@@ -110,6 +110,9 @@ export function mensagemParaOProfessor(
   resposta: RespostaDoServidor,
   tipo: TipoDeOperacao,
 ): string {
+  if (resposta.codigo === 'PAYLOAD_INVALIDO') {
+    return 'Esta pendência local está corrompida. Descarte-a e refaça a alteração.';
+  }
   if (resposta.codigo === '23503' && tipo === 'excluir_aluno') {
     return 'Este aluno possui histórico no servidor e não pode ser excluído. Inative-o.';
   }
