@@ -1,8 +1,13 @@
 import './setup.js';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { LinhaChamada, LinhaPresenca } from '@jiupresence/contracts';
+import type {
+  LinhaAluno,
+  LinhaChamada,
+  LinhaPresenca,
+} from '@jiupresence/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BancoLocal } from '../src/local/db.js';
+import { Outbox } from '../src/local/outbox.js';
 import { SincronizadorDeCache } from '../src/sync/cache.js';
 
 function id(numero: number): string {
@@ -20,6 +25,18 @@ const chamada: LinhaChamada = {
   criada_offline: false,
 };
 
+const alunoLocal: LinhaAluno = {
+  id: id(4),
+  nome: 'Ana local',
+  data_nascimento: null,
+  escala: 'adulta',
+  faixa_atual: 'azul',
+  data_ultima_graduacao: null,
+  ativo: true,
+  criado_em: '2026-10-09T22:00:00Z',
+  atualizado_em: '2026-10-09T22:00:00Z',
+};
+
 function presenca(numero: number, chamadaId = chamada.id): LinhaPresenca {
   return {
     id: id(numero + 100),
@@ -31,7 +48,10 @@ function presenca(numero: number, chamadaId = chamada.id): LinhaPresenca {
   };
 }
 
-function clienteFalso(requisicoes: URL[]): SupabaseClient {
+function clienteFalso(
+  requisicoes: URL[],
+  aguardar?: Promise<void>,
+): SupabaseClient {
   const presencas = [
     ...Array.from({ length: 1_001 }, (_, i) => presenca(i)),
     presenca(1_001, id(3)),
@@ -41,6 +61,7 @@ function clienteFalso(requisicoes: URL[]): SupabaseClient {
       const requisicao = new Request(entrada, opcoes);
       const url = new URL(requisicao.url);
       requisicoes.push(url);
+      if (aguardar) await aguardar;
       const tabela = url.pathname.split('/').at(-1);
       let dados: unknown[] =
         tabela === 'chamada' ? [chamada] : tabela === 'presenca' ? presencas : [];
@@ -78,6 +99,15 @@ describe('SincronizadorDeCache', () => {
     await db.delete();
   });
 
+  async function guardarAlunoLocal(): Promise<void> {
+    await db.cache.put({
+      chave: 'alunos',
+      valor: [alunoLocal],
+      atualizadoEm: alunoLocal.atualizado_em,
+      versaoSchema: 1,
+    });
+  }
+
   it('pagina somente as presenças das chamadas recentes', async () => {
     const requisicoes: URL[] = [];
     const sincronizador = new SincronizadorDeCache(clienteFalso(requisicoes), db);
@@ -99,5 +129,49 @@ describe('SincronizadorDeCache', () => {
       'id.asc',
       'id.asc',
     ]);
+  });
+
+  it('preserva o cache enquanto há operação pendente', async () => {
+    const requisicoes: URL[] = [];
+    await guardarAlunoLocal();
+    await new Outbox(db).enfileirar(
+      alunoLocal.id,
+      'criar_aluno',
+      alunoLocal,
+      alunoLocal.criado_em,
+    );
+
+    await new SincronizadorDeCache(clienteFalso(requisicoes), db).puxar();
+
+    expect(requisicoes).toHaveLength(0);
+    expect((await db.cache.get('alunos'))?.valor).toEqual([alunoLocal]);
+  });
+
+  it('preserva mudança criada e sincronizada durante o pull', async () => {
+    const requisicoes: URL[] = [];
+    let liberar!: () => void;
+    const aguardar = new Promise<void>((resolve) => {
+      liberar = resolve;
+    });
+    const puxar = new SincronizadorDeCache(
+      clienteFalso(requisicoes, aguardar),
+      db,
+    ).puxar();
+    await vi.waitFor(() => expect(requisicoes.length).toBeGreaterThan(0));
+
+    await guardarAlunoLocal();
+    const outbox = new Outbox(db);
+    const operacao = await outbox.enfileirar(
+      alunoLocal.id,
+      'criar_aluno',
+      alunoLocal,
+      alunoLocal.criado_em,
+    );
+    await outbox.concluir(operacao);
+    liberar();
+    await puxar;
+
+    expect(await db.outbox.count()).toBe(0);
+    expect((await db.cache.get('alunos'))?.valor).toEqual([alunoLocal]);
   });
 });

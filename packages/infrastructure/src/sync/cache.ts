@@ -21,7 +21,12 @@ import {
   type Schema,
 } from '@jiupresence/contracts';
 
-import { bancoLocal, VERSAO_DO_SCHEMA_LOCAL, type BancoLocal } from '../local/db.js';
+import {
+  bancoLocal,
+  CONTADOR_DE_ORDEM,
+  VERSAO_DO_SCHEMA_LOCAL,
+  type BancoLocal,
+} from '../local/db.js';
 
 /** Quantas chamadas recentes manter localmente. */
 export const CHAMADAS_RECENTES = 60;
@@ -54,7 +59,18 @@ export class SincronizadorDeCache {
    * Lança quando qualquer consulta falha, deixando o cache anterior intacto.
    * Cache velho é melhor que cache meio atualizado.
    */
-  async puxar(): Promise<void> {
+  async puxar(limparAntes = false): Promise<boolean> {
+    const ordemInicial = await this.db.transaction(
+      'r',
+      this.db.outbox,
+      this.db.contadores,
+      async () => {
+        if ((await this.db.outbox.count()) > 0) return null;
+        return (await this.db.contadores.get(CONTADOR_DE_ORDEM))?.valor ?? 0;
+      },
+    );
+    if (ordemInicial === null) return false;
+
     const [turmas, alunos, matriculas, chamadas] = await Promise.all([
       this.buscar('turma', linhaTurmaSchema),
       this.buscar('aluno', linhaAlunoSchema),
@@ -63,7 +79,9 @@ export class SincronizadorDeCache {
         q.order('data', { ascending: false }).limit(CHAMADAS_RECENTES),
       ),
     ]);
-    const presencas = await this.buscarPresencas(chamadas.map((chamada) => chamada.id));
+    const presencas = await this.buscarPresencas(
+      chamadas.map((chamada) => chamada.id),
+    );
 
     const agora = new Date().toISOString();
     const entradas = [
@@ -72,12 +90,30 @@ export class SincronizadorDeCache {
       { chave: 'matriculas', valor: matriculas },
       { chave: 'chamadas', valor: chamadas },
       { chave: 'presencas', valor: presencas },
-    ].map((e) => ({ ...e, atualizadoEm: agora, versaoSchema: VERSAO_DO_SCHEMA_LOCAL }));
+    ].map((e) => ({
+      ...e,
+      atualizadoEm: agora,
+      versaoSchema: VERSAO_DO_SCHEMA_LOCAL,
+    }));
 
-    // Só agora, com tudo em mãos, o cache é substituído.
-    await this.db.transaction('rw', this.db.cache, async () => {
-      await this.db.cache.bulkPut(entradas);
-    });
+    // Só substitui depois das consultas e sem escrita local concorrente.
+    return this.db.transaction(
+      'rw',
+      this.db.cache,
+      this.db.outbox,
+      this.db.contadores,
+      async () => {
+        // O contador detecta até operação criada e concluída durante as consultas.
+        const ordemAtual =
+          (await this.db.contadores.get(CONTADOR_DE_ORDEM))?.valor ?? 0;
+        if ((await this.db.outbox.count()) > 0 || ordemAtual !== ordemInicial) {
+          return false;
+        }
+        if (limparAntes) await this.db.cache.clear();
+        await this.db.cache.bulkPut(entradas);
+        return true;
+      },
+    );
   }
 
   /**
@@ -91,9 +127,7 @@ export class SincronizadorDeCache {
     const defasado = entradas.some((e) => e.versaoSchema !== VERSAO_DO_SCHEMA_LOCAL);
     if (!defasado && entradas.length > 0) return false;
 
-    await this.db.cache.clear();
-    await this.puxar();
-    return true;
+    return this.puxar(true);
   }
 
   private async buscarPresencas(chamadaIds: readonly string[]): Promise<LinhaPresenca[]> {
