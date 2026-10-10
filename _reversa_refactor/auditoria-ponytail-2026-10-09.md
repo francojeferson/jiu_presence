@@ -19,34 +19,36 @@ permanece como fotografia do commit originalmente auditado.
 | 9 | `1d5a076` | refresh não sobrescreve mudanças locais |
 | 10 | `85b5cf2` | exclusões de aluno e turma sincronizadas |
 | 11 | `81490e5` | payloads inválidos bloqueados antes do Supabase |
+| 13 | `30db8f7` | editar invalida a confirmação; `BUG-20261009-NLLT` fechado |
 
-Última validação local:
+Última validação local, nesta sessão:
 
 - `pnpm typecheck`: 9 tarefas passaram;
-- `pnpm test`: 226 testes passaram;
-- infraestrutura: 70 testes passaram;
-- os testes novos reproduziram as perdas antes das correções;
-- o Supabase real não foi iniciado localmente nesta continuação.
+- `pnpm e2e`: 7 passaram e 1 continua ignorado por depender do Supabase local;
+- o teste novo foi verificado nos dois sentidos: falha com a correção revertida;
+- `pnpm test` não foi reexecutado: a mudança é só de tela e os pacotes não têm teste de UI;
+- o Supabase real continua sem ser iniciado localmente.
 
-Próximo bloqueador de produção: **item 13**, editar uma presença mantém a
-confirmação anterior visível mesmo antes de salvar a nova versão.
+Com o item 13 fechado, **nenhum achado restante é bloqueador de produção**. Os
+pendentes são 14, 15, 16 e 17: ícones do PWA, PostCSS vulnerável, README raiz
+enganoso e limpeza da automação de quadrinhos.
 
 ## Retomada da próxima sessão
 
 Use a frase abaixo para retomar exatamente deste ponto:
 
-`RETOMAR-CONFIRMACAO-CHAMADA`
+`RETOMAR-ICONES-PWA`
 
 Ao retomar:
 
 1. Leia este arquivo antes de alterar o projeto.
-2. Não inicie a biometria ainda.
-3. Comece pelo item 13 descrito em **Próximo passo recomendado**.
+2. Comece pelo item 14 descrito em **Próximo passo recomendado**.
+3. Decida conscientemente entre terminar 14, 15, 16 e 17 ou retomar a biometria: a estabilização da fronteira IndexedDB–Supabase terminou.
 4. Preserve a regra do Reversa: antes de escrever fora das pastas próprias, leia `.reversa/reversa-config.json` e respeite `allowLegacyEdits` e `allowedPaths`.
 
 Prompt curto sugerido para a próxima sessão:
 
-> RETOMAR-CONFIRMACAO-CHAMADA. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e corrija o item 13: qualquer alteração de presença após confirmar deve exigir nova confirmação.
+> RETOMAR-ICONES-PWA. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e resolva o item 14: o manifesto aponta para ícones de 192 e 512 pixels que não existem no repositório.
 
 ## O que este repositório contém
 
@@ -282,21 +284,16 @@ Risco atual: ruído operacional e superfície de manutenção; impacto funcional
 
 ## Próximo passo recomendado
 
-Implementar exclusivamente o **item 13: invalidar a confirmação após edição**.
+O item 13 está **feito**: `alternar` zera a confirmação depois de uma troca
+bem-sucedida, e o E2E cobre confirmado → editado → reconfirmado, com recarga
+provando que a lista editada foi persistida.
 
-Fatia de implementação:
+O próximo é o **item 14: os dois ícones do manifesto**, o mais barato dos que
+sobraram e o único que afeta a instalação do PWA no aparelho do professor.
 
-1. Ao alternar uma presença, limpar o estado de confirmação da tela.
-2. Exigir nova confirmação para persistir a versão editada.
-3. Cobrir o fluxo confirmado → editado → reconfirmado.
-
-Definição de pronto:
-
-- uma edição nunca continua parecendo confirmada;
-- a nova confirmação salva a lista atualizada;
-- typecheck e o teste mínimo do fluxo verdes.
-
-Somente depois dessa estabilização vale retomar a biometria. O passo pendente da biometria continua sendo obter fotos sem recompressão e escolher um modelo de embedding com licença permissiva.
+A estabilização da fronteira IndexedDB–Supabase terminou, então retomar a
+biometria já é uma escolha legítima. O passo pendente dela continua sendo obter
+fotos sem recompressão e escolher um modelo de embedding com licença permissiva.
 
 ## Veredito
 
@@ -311,6 +308,7 @@ Não foram verificados:
 - desempenho com volume real;
 - testes do Flutter legado.
 
-O maior risco residual imediato é o item 13: a tela pode indicar uma
-confirmação que antecede a última edição. Os ambientes Supabase e Vercel
-implantados continuam sem verificação.
+Com o item 13 fechado, o maior risco residual passa a ser o que nunca foi
+exercitado: os ambientes Supabase e Vercel implantados, o celular físico e o
+volume real. O cenário E2E contra o Supabase local continua ignorado quando o
+serviço não está de pé.
