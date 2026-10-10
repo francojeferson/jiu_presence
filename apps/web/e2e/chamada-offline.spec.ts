@@ -202,6 +202,39 @@ test('uma rota privada exige sessão', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Chamada' })).toHaveCount(0);
 });
 
+test('o service worker não guarda respostas privadas do Supabase', async ({
+  page,
+  context,
+}) => {
+  await autenticar(context);
+  const origem =
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? 'https://exemplo.supabase.co';
+  const urlPrivada = new URL('/rest/v1/segredo-e2e', origem).href;
+
+  await context.route(urlPrivada, async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify([{ segredo: true }]),
+    });
+  });
+
+  await page.goto('/chamada');
+  await aguardarServiceWorker(page);
+
+  const resultado = await page.evaluate(async (url) => {
+    const resposta = await fetch(url);
+    // O NetworkFirst preenche o cache em segundo plano via waitUntil.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return {
+      corpo: await resposta.json(),
+      cacheada: (await caches.match(url)) !== undefined,
+    };
+  }, urlPrivada);
+
+  expect(resultado).toEqual({ corpo: [{ segredo: true }], cacheada: false });
+});
+
 test.describe('chamada offline', () => {
   test.beforeEach(async ({ context }) => {
     await autenticar(context);

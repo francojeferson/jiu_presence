@@ -11,7 +11,7 @@
 
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { NetworkOnly, Serwist } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -20,6 +20,11 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope;
+
+const urlDoSupabase = process.env['NEXT_PUBLIC_SUPABASE_URL'];
+const origemDoSupabase = urlDoSupabase
+  ? new URL(urlDoSupabase).origin
+  : undefined;
 
 const serwist = new Serwist({
   // `?? []` em vez de repassar direto: o manifesto é injetado em tempo de
@@ -40,7 +45,13 @@ const serwist = new Serwist({
   // promessa de preload rejeita e complica o caminho de fallback — que é
   // justamente o que precisa ser confiável aqui.
   navigationPreload: false,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [
+    {
+      matcher: ({ url }) => url.origin === origemDoSupabase,
+      handler: new NetworkOnly(),
+    },
+    ...defaultCache,
+  ],
   fallbacks: {
     entries: [
       {
