@@ -20,35 +20,36 @@ permanece como fotografia do commit originalmente auditado.
 | 10 | `85b5cf2` | exclusões de aluno e turma sincronizadas |
 | 11 | `81490e5` | payloads inválidos bloqueados antes do Supabase |
 | 13 | `30db8f7` | editar invalida a confirmação; `BUG-20261009-NLLT` fechado |
+| 14 | `cd03e30` | ícones de 192 e 512 criados; E2E cobra o que o manifesto promete |
 
 Última validação local, nesta sessão:
 
 - `pnpm typecheck`: 9 tarefas passaram;
-- `pnpm e2e`: 7 passaram e 1 continua ignorado por depender do Supabase local;
-- o teste novo foi verificado nos dois sentidos: falha com a correção revertida;
-- `pnpm test` não foi reexecutado: a mudança é só de tela e os pacotes não têm teste de UI;
+- `pnpm e2e`: 8 passaram e 1 continua ignorado por depender do Supabase local;
+- os dois testes novos foram verificados nos dois sentidos: cada um falha quando a respectiva correção é desfeita;
+- `pnpm test` não foi reexecutado: as mudanças são de tela e de asset, e os pacotes não têm teste de UI;
 - o Supabase real continua sem ser iniciado localmente.
 
-Com o item 13 fechado, **nenhum achado restante é bloqueador de produção**. Os
-pendentes são 14, 15, 16 e 17: ícones do PWA, PostCSS vulnerável, README raiz
-enganoso e limpeza da automação de quadrinhos.
+Com 13 e 14 fechados, **nenhum achado restante é bloqueador de produção**. Os
+pendentes são 15, 16 e 17: PostCSS vulnerável, README raiz enganoso e limpeza
+da automação de quadrinhos.
 
 ## Retomada da próxima sessão
 
 Use a frase abaixo para retomar exatamente deste ponto:
 
-`RETOMAR-ICONES-PWA`
+`RETOMAR-POSTCSS`
 
 Ao retomar:
 
 1. Leia este arquivo antes de alterar o projeto.
-2. Comece pelo item 14 descrito em **Próximo passo recomendado**.
-3. Decida conscientemente entre terminar 14, 15, 16 e 17 ou retomar a biometria: a estabilização da fronteira IndexedDB–Supabase terminou.
+2. Comece pelo item 15 descrito em **Próximo passo recomendado**.
+3. Decida conscientemente entre terminar 15, 16 e 17 ou retomar a biometria: a estabilização da fronteira IndexedDB–Supabase terminou e nada do que sobrou bloqueia produção.
 4. Preserve a regra do Reversa: antes de escrever fora das pastas próprias, leia `.reversa/reversa-config.json` e respeite `allowLegacyEdits` e `allowedPaths`.
 
 Prompt curto sugerido para a próxima sessão:
 
-> RETOMAR-ICONES-PWA. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e resolva o item 14: o manifesto aponta para ícones de 192 e 512 pixels que não existem no repositório.
+> RETOMAR-POSTCSS. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e resolva o item 15: fixar PostCSS 8.5.23 ou superior por resolução do pnpm e confirmar com `pnpm audit --prod`.
 
 ## O que este repositório contém
 
@@ -284,12 +285,31 @@ Risco atual: ruído operacional e superfície de manutenção; impacto funcional
 
 ## Próximo passo recomendado
 
-O item 13 está **feito**: `alternar` zera a confirmação depois de uma troca
-bem-sucedida, e o E2E cobre confirmado → editado → reconfirmado, com recarga
-provando que a lista editada foi persistida.
+Os itens 13 e 14 estão **feitos**. No 13, `alternar` zera a confirmação depois
+de uma troca bem-sucedida, e o E2E cobre confirmado → editado → reconfirmado,
+com recarga provando que a lista editada foi persistida. No 14, os dois ícones
+passaram a existir e um E2E novo cobra do manifesto tudo que ele promete, que é
+exatamente a falha que ninguém detectava na build.
 
-O próximo é o **item 14: os dois ícones do manifesto**, o mais barato dos que
-sobraram e o único que afeta a instalação do PWA no aparelho do professor.
+Os ícones foram gerados com o `sharp` que o Next já traz, a partir deste SVG,
+guardado aqui porque o script foi descartado:
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#101014"/>
+  <rect x="76" y="212" width="360" height="72" rx="12" fill="#4c8dff"/>
+  <rect x="206" y="268" width="38" height="144" rx="12" fill="#2f6fe0"/>
+  <rect x="268" y="268" width="38" height="112" rx="12" fill="#2f6fe0"/>
+  <rect x="196" y="200" width="120" height="96" rx="16" fill="#7fb0ff"/>
+</svg>
+```
+
+Uma faixa com o nó ao centro, em geometria pura: nenhuma fonte envolvida, e
+todo o desenho dentro do círculo de 40% exigido pelo `purpose: maskable`. Os
+ícones legados em `web/icons/` são o logotipo do Flutter e não servem.
+
+O próximo é o **item 15: PostCSS vulnerável**, resolvido por uma resolução do
+pnpm e confirmado com `pnpm audit --prod`.
 
 A estabilização da fronteira IndexedDB–Supabase terminou, então retomar a
 biometria já é uma escolha legítima. O passo pendente dela continua sendo obter
