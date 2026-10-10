@@ -149,6 +149,32 @@ describe('SincronizadorOutbox', () => {
       const ordemFinal = remoto.recebidos.slice(1).map((i) => i.id);
       expect(ordemFinal).toEqual([b, b, c]);
     });
+
+    it('preserva uma exclusão e a conclui na tentativa seguinte', async () => {
+      const alunoId = id();
+      const operacao = await outbox.enfileirar(
+        alunoId,
+        'excluir_aluno',
+        { id: alunoId },
+        AGORA.toISOString(),
+      );
+      const { remoto, sinc } = montar([{ status: 503 }, { status: 204 }]);
+
+      await sinc.rodada(AGORA);
+
+      expect(await db.outbox.get(operacao)).toMatchObject({
+        estado: 'pendente',
+        tentativas: 1,
+      });
+
+      await sinc.rodada(new Date(AGORA.getTime() + 60_000));
+
+      expect(await db.outbox.get(operacao)).toBeUndefined();
+      expect(remoto.recebidos.map((item) => item.tipo)).toEqual([
+        'excluir_aluno',
+        'excluir_aluno',
+      ]);
+    });
   });
 
   describe('falha permanente', () => {

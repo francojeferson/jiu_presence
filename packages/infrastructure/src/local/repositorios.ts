@@ -148,9 +148,16 @@ export class RepositoriosLocais {
   }
 
   async excluir(id: Id): Promise<void> {
-    await this.db.transaction('rw', this.db.cache, async () => {
+    await garantirEspacoParaEscrita();
+    await this.db.transaction('rw', this.db.cache, this.db.outbox, this.db.contadores, async () => {
       const lista = await ler<LinhaAluno>(this.db, 'alunos');
       await escrever(this.db, 'alunos', lista.filter((l) => l.id !== id));
+      await this.outbox.enfileirar(
+        id,
+        'excluir_aluno',
+        { id },
+        new Date().toISOString(),
+      );
     });
   }
 
@@ -192,9 +199,16 @@ export class RepositoriosLocais {
   }
 
   async excluirTurma(id: Id): Promise<void> {
-    await this.db.transaction('rw', this.db.cache, async () => {
+    await garantirEspacoParaEscrita();
+    await this.db.transaction('rw', this.db.cache, this.db.outbox, this.db.contadores, async () => {
       const lista = await ler<LinhaTurma>(this.db, 'turmas');
       await escrever(this.db, 'turmas', lista.filter((l) => l.id !== id));
+      await this.outbox.enfileirar(
+        id,
+        'excluir_turma',
+        { id },
+        new Date().toISOString(),
+      );
     });
   }
 

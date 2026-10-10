@@ -5,9 +5,11 @@ import type {
   LinhaChamada,
   LinhaPresenca,
 } from '@jiupresence/contracts';
+import type { Id } from '@jiupresence/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BancoLocal } from '../src/local/db.js';
 import { Outbox } from '../src/local/outbox.js';
+import { RepositoriosLocais } from '../src/local/repositorios.js';
 import { SincronizadorDeCache } from '../src/sync/cache.js';
 
 function id(numero: number): string {
@@ -51,6 +53,7 @@ function presenca(numero: number, chamadaId = chamada.id): LinhaPresenca {
 function clienteFalso(
   requisicoes: URL[],
   aguardar?: Promise<void>,
+  alunos: LinhaAluno[] = [],
 ): SupabaseClient {
   const presencas = [
     ...Array.from({ length: 1_001 }, (_, i) => presenca(i)),
@@ -64,7 +67,13 @@ function clienteFalso(
       if (aguardar) await aguardar;
       const tabela = url.pathname.split('/').at(-1);
       let dados: unknown[] =
-        tabela === 'chamada' ? [chamada] : tabela === 'presenca' ? presencas : [];
+        tabela === 'chamada'
+          ? [chamada]
+          : tabela === 'presenca'
+            ? presencas
+            : tabela === 'aluno'
+              ? alunos
+              : [];
 
       if (tabela === 'presenca') {
         if (url.searchParams.has('chamada_id')) {
@@ -145,6 +154,28 @@ describe('SincronizadorDeCache', () => {
 
     expect(requisicoes).toHaveLength(0);
     expect((await db.cache.get('alunos'))?.valor).toEqual([alunoLocal]);
+  });
+
+  it('não deixa aluno excluído reaparecer antes nem depois da sincronização', async () => {
+    const requisicoes: URL[] = [];
+    const alunosRemotos = [alunoLocal];
+    await guardarAlunoLocal();
+    await new RepositoriosLocais(db).excluir(alunoLocal.id as Id);
+    const sincronizador = new SincronizadorDeCache(
+      clienteFalso(requisicoes, undefined, alunosRemotos),
+      db,
+    );
+
+    expect(await sincronizador.puxar()).toBe(false);
+    expect(requisicoes).toHaveLength(0);
+    expect((await db.cache.get('alunos'))?.valor).toEqual([]);
+
+    alunosRemotos.length = 0;
+    const remocao = (await db.outbox.toArray())[0]!;
+    await new Outbox(db).concluir(remocao.id);
+
+    expect(await sincronizador.puxar()).toBe(true);
+    expect((await db.cache.get('alunos'))?.valor).toEqual([]);
   });
 
   it('preserva mudança criada e sincronizada durante o pull', async () => {

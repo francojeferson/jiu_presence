@@ -66,7 +66,11 @@ export function classificar(
   // classificaria como permanente um item que só precisa esperar o anterior
   // subir. O resultado seria a presença saindo da fila ativa e o professor
   // tendo que resolver na mão algo que se resolveria sozinho.
-  if (codigo === '23503') return 'transitorio';
+  if (codigo === '23503') {
+    return tipo === 'excluir_aluno' || tipo === 'excluir_turma'
+      ? 'permanente'
+      : 'transitorio';
+  }
 
   if (status === 409 || codigo === '23505') {
     if (constraint && CONSTRAINTS_IDEMPOTENTES.has(constraint)) return 'sucesso';
@@ -79,7 +83,14 @@ export function classificar(
   }
 
   // Remoção de algo que já não existe: o estado desejado é o atual.
-  if (status === 404 && tipo === 'remover_presenca') return 'sucesso';
+  if (
+    status === 404 &&
+    (tipo === 'excluir_aluno' ||
+      tipo === 'excluir_turma' ||
+      tipo === 'remover_presenca')
+  ) {
+    return 'sucesso';
+  }
 
   // Atualizar entidade removida no servidor exige decisão do professor.
   if (status === 404) return 'permanente';
@@ -99,6 +110,12 @@ export function mensagemParaOProfessor(
   resposta: RespostaDoServidor,
   tipo: TipoDeOperacao,
 ): string {
+  if (resposta.codigo === '23503' && tipo === 'excluir_aluno') {
+    return 'Este aluno possui histórico no servidor e não pode ser excluído. Inative-o.';
+  }
+  if (resposta.codigo === '23503' && tipo === 'excluir_turma') {
+    return 'Esta turma possui histórico no servidor e não pode ser excluída. Desative-a.';
+  }
   if (resposta.constraint === 'chamada_unica_por_turma_e_data') {
     return 'Já existe uma chamada registrada para esta turma neste dia.';
   }
@@ -117,8 +134,10 @@ function rotuloDe(tipo: TipoDeOperacao): string {
     criar_aluno: 'cadastro de aluno',
     atualizar_aluno: 'edição de aluno',
     inativar_aluno: 'inativação de aluno',
+    excluir_aluno: 'exclusão de aluno',
     criar_turma: 'cadastro de turma',
     atualizar_turma: 'edição de turma',
+    excluir_turma: 'exclusão de turma',
     criar_matricula: 'matrícula',
     encerrar_matricula: 'desmatrícula',
     criar_chamada: 'chamada',

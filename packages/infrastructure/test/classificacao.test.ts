@@ -78,6 +78,18 @@ describe('classificação da resposta do servidor', () => {
       ).toBe('transitorio');
     });
 
+    it('histórico no servidor impede exclusão sem envenenar a fila', () => {
+      const resposta = { status: 409, codigo: '23503' };
+      expect(classificar(resposta, 'excluir_aluno')).toBe('permanente');
+      expect(classificar(resposta, 'excluir_turma')).toBe('permanente');
+      expect(mensagemParaOProfessor(resposta, 'excluir_aluno')).toContain(
+        'Inative-o',
+      );
+      expect(mensagemParaOProfessor(resposta, 'excluir_turma')).toContain(
+        'Desative-a',
+      );
+    });
+
     it('status desconhecido é transitório por desenho', () => {
       // Errar para o lado de retentar preserva o dado;
       // errar para o lado de descartar o perde.
@@ -94,6 +106,8 @@ describe('classificação da resposta do servidor', () => {
     it('remover algo que já não existe é sucesso', () => {
       // O estado desejado já é o atual.
       expect(classificar(ok(404), 'remover_presenca')).toBe('sucesso');
+      expect(classificar(ok(404), 'excluir_aluno')).toBe('sucesso');
+      expect(classificar(ok(404), 'excluir_turma')).toBe('sucesso');
     });
 
     it('dado inválido nunca é retentado em laço', () => {

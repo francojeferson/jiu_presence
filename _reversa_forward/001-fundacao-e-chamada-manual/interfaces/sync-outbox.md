@@ -86,11 +86,12 @@ DELETE /rest/v1/presenca?id=eq.<uuid>
 | `204` | sucesso | Remover do outbox |
 | `204` com zero linhas afetadas | sucesso idempotente | Já havia sido removida, ou nunca subiu. O estado desejado é o atual |
 
-### 3.4 `criar_aluno`, `atualizar_aluno`, `inativar_aluno`
+### 3.4 `criar_aluno`, `atualizar_aluno`, `inativar_aluno`, `excluir_aluno`
 
 ```
 POST /rest/v1/aluno          (criar)
 PATCH /rest/v1/aluno?id=eq.<uuid>  (atualizar, inativar)
+DELETE /rest/v1/aluno?id=eq.<uuid> (excluir)
 ```
 
 | Resposta | Classificação | Ação |
@@ -98,11 +99,16 @@ PATCH /rest/v1/aluno?id=eq.<uuid>  (atualizar, inativar)
 | `201` ou `204` | sucesso | Remover do outbox |
 | `409` em `aluno_pkey` no criar | sucesso idempotente | Remover do outbox |
 | `404` no atualizar | falha permanente | O aluno foi removido no servidor. Apresentar ao professor com motivo legível |
+| `204` ou `404` no excluir | sucesso idempotente | O estado desejado já foi alcançado |
+| `409 / 23503` no excluir | falha permanente | Há histórico no servidor; orientar a inativação |
 | `400` violação de constraint de faixa | falha permanente | Dado inválido. Nunca retentar em laço |
 
-### 3.5 `criar_turma`, `criar_matricula`, `encerrar_matricula`
+### 3.5 `criar_turma`, `atualizar_turma`, `excluir_turma`, `criar_matricula`, `encerrar_matricula`
 
-Mesma classificação das operações de aluno. `criar_matricula` usa chave composta `(aluno_id, turma_id, matriculado_em)`; conflito nela é sucesso idempotente.
+Mesma classificação das operações de aluno. Turma com chamada no servidor não
+pode ser excluída; a falha orienta sua desativação. `criar_matricula` usa chave
+composta `(aluno_id, turma_id, matriculado_em)`; conflito nela é sucesso
+idempotente.
 
 ## 4. Classificação de erro
 

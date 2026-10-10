@@ -50,8 +50,10 @@ const TABELA_POR_TIPO: Record<TipoDeOperacao, string> = {
   criar_aluno: 'aluno',
   atualizar_aluno: 'aluno',
   inativar_aluno: 'aluno',
+  excluir_aluno: 'aluno',
   criar_turma: 'turma',
   atualizar_turma: 'turma',
+  excluir_turma: 'turma',
   criar_matricula: 'matricula',
   encerrar_matricula: 'matricula',
   criar_chamada: 'chamada',
@@ -85,6 +87,8 @@ export class OperacoesRemotas {
         case 'encerrar_matricula':
           return await this.atualizarMatricula(payload);
 
+        case 'excluir_aluno':
+        case 'excluir_turma':
         case 'remover_presenca':
           return await this.remover(tabela, payload['id'] as string);
       }

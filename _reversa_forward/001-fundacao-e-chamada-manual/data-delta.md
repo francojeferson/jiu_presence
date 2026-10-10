@@ -164,7 +164,8 @@ Não existem no Supabase. Implementadas em Dexie sobre IndexedDB (D-06).
 outbox
   id                    uuid v7, chave de idempotência (D-07, D-08)
   tipo                  'criar_aluno' | 'atualizar_aluno' | 'inativar_aluno' |
-                        'criar_turma' | 'criar_matricula' | 'encerrar_matricula' |
+                        'excluir_aluno' | 'criar_turma' | 'atualizar_turma' |
+                        'excluir_turma' | 'criar_matricula' | 'encerrar_matricula' |
                         'criar_chamada' | 'criar_presenca' | 'remover_presenca'
   payload               json
   criado_em             ISO 8601, data real do evento (RF-31)
