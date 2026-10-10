@@ -17,33 +17,35 @@ permanece como fotografia do commit originalmente auditado.
 | 3 | `5fc236b` | respostas do Supabase fora do Cache Storage |
 | 8 | `68f7615` | presenças recentes filtradas e paginadas |
 | 9 | `1d5a076` | refresh não sobrescreve mudanças locais |
+| 10 | `85b5cf2` | exclusões de aluno e turma sincronizadas |
 
 Última validação local:
 
 - `pnpm typecheck`: 9 tarefas passaram;
-- infraestrutura: 58 testes passaram;
+- `pnpm test`: 222 testes passaram;
+- infraestrutura: 66 testes passaram;
 - os testes novos reproduziram as perdas antes das correções;
 - o Supabase real não foi iniciado localmente nesta continuação.
 
-Próximo bloqueador de produção: **item 10**, exclusões locais que não entram na
-outbox e reaparecem no próximo pull.
+Próximo bloqueador de produção: **item 11**, payloads da outbox definidos por
+schema, mas enviados sem validação.
 
 ## Retomada da próxima sessão
 
 Use a frase abaixo para retomar exatamente deste ponto:
 
-`RETOMAR-EXCLUSOES-SYNC`
+`RETOMAR-VALIDACAO-OUTBOX`
 
 Ao retomar:
 
 1. Leia este arquivo antes de alterar o projeto.
 2. Não inicie a biometria ainda.
-3. Comece pelo item 10 descrito em **Próximo passo recomendado**.
+3. Comece pelo item 11 descrito em **Próximo passo recomendado**.
 4. Preserve a regra do Reversa: antes de escrever fora das pastas próprias, leia `.reversa/reversa-config.json` e respeite `allowLegacyEdits` e `allowedPaths`.
 
 Prompt curto sugerido para a próxima sessão:
 
-> RETOMAR-EXCLUSOES-SYNC. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e corrija o item 10, começando por um teste que prove que a exclusão reaparece após o pull.
+> RETOMAR-VALIDACAO-OUTBOX. Leia `_reversa_refactor/auditoria-ponytail-2026-10-09.md`, confirme o estado atual do Git e corrija o item 11, começando por um teste com payload inválido que prove que nenhuma requisição é enviada.
 
 ## O que este repositório contém
 
@@ -279,20 +281,19 @@ Risco atual: ruído operacional e superfície de manutenção; impacto funcional
 
 ## Próximo passo recomendado
 
-Implementar exclusivamente o **item 10: exclusões sincronizadas**.
+Implementar exclusivamente o **item 11: validação dos payloads da outbox**.
 
 Fatia de implementação:
 
-1. Adicionar testes que provem que excluir aluno ou turma altera o cache e a
-   outbox na mesma transação.
-2. Enviar a exclusão ao Supabase com retry e idempotência.
-3. Confirmar que o registro não reaparece após sincronizar e puxar o cache.
+1. Validar o payload pelo schema correspondente antes de chamar o Supabase.
+2. Transformar payload inválido em falha permanente legível, sem requisição.
+3. Preservar o comportamento atual para payloads válidos e itens antigos.
 
 Definição de pronto:
 
-- excluir localmente e enfileirar são atômicos;
-- sucesso remoto impede o reaparecimento no próximo pull;
-- falha transitória preserva a intenção de exclusão;
+- payload inválido não chega à rede nem entra em retry infinito;
+- a pendência fica visível com mensagem segura e acionável;
+- payloads válidos continuam sendo enviados sem mudança de semântica;
 - typecheck e testes de infraestrutura verdes.
 
 Somente depois dessa estabilização vale retomar a biometria. O passo pendente da biometria continua sendo obter fotos sem recompressão e escolher um modelo de embedding com licença permissiva.
@@ -310,6 +311,6 @@ Não foram verificados:
 - desempenho com volume real;
 - testes do Flutter legado.
 
-O maior risco residual é o item 10: exclusões ainda não são sincronizadas e
-podem reaparecer. Os ambientes Supabase e Vercel implantados continuam sem
-verificação.
+O maior risco residual é o item 11: um payload local corrompido ainda pode
+entrar em retry ou chegar à fronteira remota sem validação. Os ambientes
+Supabase e Vercel implantados continuam sem verificação.
