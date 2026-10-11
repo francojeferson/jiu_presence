@@ -151,6 +151,10 @@ Custaram tempo e vão custar de novo se ninguém registrar:
 
 ## Próximo passo recomendado
 
+> ⚠️ **Esta seção é fotografia de 2026-10-11.** O estado vivo do que está em
+> aberto mora em [`pendencias-abertas.md`](./pendencias-abertas.md) — leia ele
+> primeiro, inclusive para saber o que já foi fechado desde esta data.
+
 ### Item 15 da auditoria de 10-09: PostCSS vulnerável — **ainda aberto**
 
 Confirmado nesta sessão:

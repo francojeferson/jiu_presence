@@ -5,10 +5,14 @@
 > | Palavra-chave | Trilha | Leia primeiro |
 > |---|---|---|
 > | `FASE0-BIOMETRIA` | reconhecimento facial | este arquivo → `fase0-deteccao-resultado.md` → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
-> | `RETOMAR-POSTCSS` | dívida de repositório | `_reversa_refactor/auditoria-ponytail-2026-10-11.md` |
+> | `RETOMAR-POSTCSS` | dívida de repositório | [`_reversa_refactor/pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md) |
 >
-> As duas são independentes. A de produto é a biometria; a de dívida tem um
-> item só em aberto (PostCSS vulnerável, correção de duas linhas).
+> As duas são independentes.
+>
+> 📋 **Tudo que está em aberto, num lugar só:**
+> [`_reversa_refactor/pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md).
+> Ele é o registro vivo; as auditorias datadas são fotografias. Comece por ele
+> em qualquer das duas trilhas — inclusive para saber o que **não** reabrir.
 
 Data: `2026-10-11` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
 

@@ -104,10 +104,12 @@ credenciais de exemplo no código, exatamente o que a aplicação atual não faz
 
 ## Documentação
 
-- `_reversa_sdd/` — PRD e especificações
+- **`_reversa_refactor/pendencias-abertas.md` — o que está em aberto.** Registro
+  vivo; comece por aqui.
 - `_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md` — estado atual e
   como retomar
-- `_reversa_refactor/` — auditorias do repositório, em ordem de data
+- `_reversa_sdd/` — PRD e especificações
+- `_reversa_refactor/auditoria-ponytail-*.md` — auditorias, fotografias datadas
 
 ## Licença
 
