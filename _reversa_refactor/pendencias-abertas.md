@@ -22,106 +22,25 @@ regras do domínio seguem apoiadas em premissa.
 
 | # | Pendência | Classe | Custo de fechar |
 |---|---|---|---|
-| 1 | PostCSS vulnerável | dívida | 2 linhas + lockfile |
-| 2 | Guard do legado não dispara no CI | dívida | 1 bloco no gatilho |
-| 3 | `redefinirContainer()` sem aviso sobre `parar()` | dívida | 1 comentário |
-| 4 | Duração da carência de edição nunca confirmada | decisão | pergunta ao professor |
-| 5 | Composição da escala infantil nunca confirmada | decisão | pergunta ao professor |
-| 6 | Biometria travada em dados e licença | produto | pesquisa |
-| 7 | Cinco áreas sem teste | cobertura | variável |
-| 8 | Ambientes implantados nunca exercitados | risco | acesso |
+| 1 | Duração da carência de edição nunca confirmada | decisão | pergunta ao professor |
+| 2 | Composição da escala infantil nunca confirmada | decisão | pergunta ao professor |
+| 3 | Biometria travada em dados e licença | produto | pesquisa |
+| 4 | Cinco áreas sem teste | cobertura | variável |
+| 5 | Ambientes implantados nunca exercitados | risco | acesso |
+
+> As três dívidas que ocupavam os lugares 1 a 3 foram fechadas em 2026-10-11 e
+> estão em "O que NÃO está em aberto", no fim do arquivo. **Não sobrou nenhuma
+> dívida de código em aberto:** o que resta depende de resposta do professor,
+> de pesquisa ou de acesso a ambiente.
 
 ---
 
-## 1. PostCSS vulnerável
-
-Herdado da auditoria de 10-09, item 15. Confirmado em 2026-10-11:
-
-```
-pnpm audit --prod → 4 vulnerabilidades (2 altas, 2 moderadas)
-apps/web > next@15.5.27 > postcss@8.4.31     corrigido em >= 8.5.23
-```
-
-A exposição é principalmente de build: o repositório controla o CSS
-processado. Correção mínima, no `package.json` da raiz:
-
-```json
-"pnpm": { "overrides": { "postcss": ">=8.5.23" } }
-```
-
-Confirmar com `pnpm audit --prod` e `pnpm build` — a sobreposição força uma
-versão que o Next não escolheu, então o build é a prova de que nada quebrou.
-
-**Se ignorarmos:** vulnerabilidade conhecida em dependência de produção, que
-qualquer varredura aponta.
-
----
-
-## 2. O guard do legado não dispara quando o legado muda
-
-Herdado da auditoria de 10-08, item 19, **fechado pela metade**. A parte da
-revisão base foi corrigida (hoje usa `github.event.pull_request.base.sha ||
-github.event.before`); a parte do gatilho **não**.
-
-Evidência em [`.github/workflows/web-ci.yml`](../.github/workflows/web-ci.yml):
-o `paths:` lista `apps/**`, `packages/**`, `infra/**` e arquivos de raiz —
-**nenhum caminho legado**. Um commit que toque apenas `lib/` ou `supabase/`
-não dispara o workflow, então o passo *"O legado Flutter permanece intocado"*
-nunca roda e a garantia que ele promete não existe nesse caso.
-
-Correção mínima: acrescentar os caminhos vigiados ao gatilho de `push`.
-
-```yaml
-      - 'lib/**'
-      - 'test/**'
-      - 'supabase/**'
-      - 'web/**'
-      - 'windows/**'
-      - 'pubspec.yaml'
-```
-
-Vale conferir também o caso em que `github.event.before` vem zerado (primeiro
-push de uma branch, ou force-push): `BASE="${BASE:-HEAD^}"` **não** substitui
-um SHA de zeros, porque ele não é vazio. Não testei esse caminho.
-
-**Se ignorarmos:** o legado pode ser alterado sem que nada acuse — e a
-regra não-negociável do projeto depende justamente desse passo.
-
-> Episódio concreto: nesta sessão, `supabase start` escreveu
-> `supabase/.temp/cli-latest`, **dentro do legado**, e o arquivo foi commitado
-> sem que minha checagem local pegasse, porque ela rodou antes de o arquivo
-> existir. Corrigido no `.gitignore` (`56e00ce`), mas a classe do problema
-> continua: ferramenta que escreve em caminho legado depois da conferência.
-
----
-
-## 3. `redefinirContainer()` traz o sincronizador zumbi de volta
-
-`SincronizadorOutbox.parar()` só é chamado por `sair()`. Quem usar
-[`redefinirContainer()`](../apps/web/src/composicao/container.ts) direto
-descarta o container deixando a instância antiga **ainda inscrita** em
-`observarFila`, que guarda os ouvintes num `Set` de módulo. Duas instâncias
-passam a processar o mesmo outbox.
-
-Foi exatamente o defeito que a revisão de segurança apontou em `sair()`, e que
-o `afterEach` de `sincronizador.test.ts` teve de contornar no harness.
-
-Correção mínima: um comentário em `redefinirContainer` dizendo que o chamador
-precisa ter parado o sincronizador antes. Correção melhor, se alguém for mexer
-ali: fazer `redefinirContainer()` chamar `parar()` na instância que está
-descartando.
-
-**Se ignorarmos:** o próximo caminho que descartar o container reintroduz a
-corrida, e desta vez sem revisão olhando.
-
----
-
-## 4 e 5. Decisões que só o professor pode tomar
+## 1 e 2. Decisões que só o professor pode tomar
 
 As duas estão marcadas com ⚠️ no próprio código, para quem for mexer tropeçar
 nelas.
 
-### 4. Quanto tempo uma chamada confirmada continua editável
+### 1. Quanto tempo uma chamada confirmada continua editável
 
 [`chamada.ts`](../packages/domain/src/chamada/chamada.ts) — `OQ-03` de
 `chamada-e-presenca`. Premissa adotada: **24 horas** a contar da realização.
@@ -130,7 +49,7 @@ Nunca confirmada.
 Se o professor disser outro número, é uma constante. Se ele disser "sempre" ou
 "até o fim da aula", muda a regra e os testes de carência junto.
 
-### 5. Como é a escala infantil, e onde fica o corte
+### 2. Como é a escala infantil, e onde fica o corte
 
 [`faixa.ts`](../packages/domain/src/valor/faixa.ts) — premissa 2 do roadmap.
 Adotado: corte aos **16 anos**; infantil = branca, cinza, amarela, laranja,
@@ -149,7 +68,7 @@ primeiro aluno cadastrado.
 
 ---
 
-## 6. Biometria: travada em dados e licença, não em código
+## 3. Biometria: travada em dados e licença, não em código
 
 A porta está declarada e **nenhuma implementação existe**, por decisão (D-13).
 Detalhe em
@@ -174,7 +93,7 @@ PDF e notificações.
 
 ---
 
-## 7. O que não tem teste
+## 4. O que não tem teste
 
 | Área | Por que não tem | Como ficaria coberta |
 |---|---|---|
@@ -189,7 +108,7 @@ LGPD sustentada hoje só por uma lista de strings.
 
 ---
 
-## 8. Riscos residuais conhecidos
+## 5. Riscos residuais conhecidos
 
 - **Ambientes implantados nunca exercitados.** Supabase hospedado e Vercel. É
   o maior risco residual do projeto, e não mudou nesta sessão.
@@ -211,6 +130,9 @@ Para ninguém reabrir o que já foi decidido ou fechado:
 
 | Assunto | Estado |
 |---|---|
+| PostCSS vulnerável | fechado em 2026-10-11: `overrides: { postcss: ">=8.5.23" }` na raiz. `pnpm audit --prod` saiu de 4 vulnerabilidades para **nenhuma**, e `pnpm build` segue verde com 8 rotas — a prova de que forçar versão que o Next não escolheu não quebrou nada |
+| Gatilho do CI cego ao legado | fechado em 2026-10-11: o `paths:` de `push` espelha a lista `ALVOS` do passo que vigia o legado, e um `before` com SHA de zeros (primeiro push, force-push) agora cai em `HEAD^` por verificação explícita, não por `${BASE:-}` |
+| `redefinirContainer()` sem `parar()` | fechado em 2026-10-11: a própria função desliga sincronizador e monitor antes de soltar a instância. `sair()` continua chamando os dois na ordem que precisa — ambos os `parar()` são idempotentes |
 | Itens 1–14 da auditoria de 10-08 | fechados (ver 10-09) |
 | Itens 16 e 17 da auditoria de 10-09 | fechados em 2026-10-11 |
 | Os 13 achados da auditoria de 10-11 | fechados, com teste |

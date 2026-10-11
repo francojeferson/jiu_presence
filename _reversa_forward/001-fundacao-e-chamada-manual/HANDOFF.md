@@ -35,11 +35,17 @@ está escrito aqui pode ter envelhecido junto.
 
 ```
 main == origin/main, árvore limpa
-pnpm typecheck    14 tarefas
+pnpm typecheck    9 tarefas, todas verdes
 pnpm test         219 testes — domain 99, application 42, infrastructure 78
+pnpm build        5 tarefas, 8 rotas
+pnpm audit --prod nenhuma vulnerabilidade
 pnpm arch         0 erros (1 aviso pré-existente: test/setup.ts órfão)
 pnpm e2e          23/23 com Supabase local de pé; sem ele, 2 são ignorados
 ```
+
+> O "14 tarefas" anotado antes vinha de uma corrida que listava os `build`
+> intermediários; `turbo` reporta **9**. A contagem de testes é o sinal
+> confiável de deriva, não essa.
 
 Sem SHA de propósito: um hash anotado no arquivo que o próprio commit escreve
 nasce errado. As contagens de teste são o sinal de deriva que funciona, e
@@ -53,11 +59,11 @@ As duas são independentes. A escolha é do usuário, não do agente.
 
 | Trilha | Primeiro passo | Leitura específica |
 |---|---|---|
-| **Dívida** | item 1 do registro: PostCSS, correção de duas linhas | só o registro |
+| **Dívida** | **nenhuma dívida de código em aberto.** O que sobrou é o item 4 do registro, cobertura — e dentro dele o teste de higienização do `log.ts`, a promessa de LGPD sustentada hoje só por uma lista de strings | só o registro |
 | **Produto** | biometria — travada em dados e licença, não em código | este arquivo → [`fase0-deteccao-resultado.md`](./fase0-deteccao-resultado.md) → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
 
 > Palavras-chave antigas continuam funcionando e caem aqui:
-> `RETOMAR-POSTCSS` (hoje é o item 1 do registro, não uma trilha) e
+> `RETOMAR-POSTCSS` (**fechado em 2026-10-11**, ver o fim do registro) e
 > `FASE0-BIOMETRIA` (a trilha de produto).
 
 ---
