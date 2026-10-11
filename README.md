@@ -104,10 +104,13 @@ credenciais de exemplo no código, exatamente o que a aplicação atual não faz
 
 ## Documentação
 
+Retomando o trabalho numa sessão nova, a palavra-chave é
+**`RETOMAR-JIUPRESENCE`** — o protocolo está no HANDOFF abaixo.
+
 - **`_reversa_refactor/pendencias-abertas.md` — o que está em aberto.** Registro
   vivo; comece por aqui.
-- `_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md` — estado atual e
-  como retomar
+- `_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md` — como retomar:
+  palavra-chave, estado esperado do Git e trilhas
 - `_reversa_sdd/` — PRD e especificações
 - `_reversa_refactor/auditoria-ponytail-*.md` — auditorias, fotografias datadas
 

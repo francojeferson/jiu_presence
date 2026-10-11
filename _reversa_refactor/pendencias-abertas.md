@@ -1,11 +1,16 @@
 # Pendências abertas
 
-Última revisão: 2026-10-11 · Commit: `56e00ce` · Branch: `main`
+Última revisão: 2026-10-11 · Branch: `main`
 
 > **Registro único do que está em aberto.** Substitui as seções "próximo passo"
 > das auditorias de 10-08, 10-09 e 10-11, que ficam como fotografia do dia em
 > que foram escritas. Se um item sair daqui, saiu de verdade — atualize este
 > arquivo na mesma passada em que fechar.
+>
+> 🔑 Para retomar numa sessão nova: **`RETOMAR-JIUPRESENCE`**. O protocolo
+> (ordem de leitura, estado esperado do Git, verificação antes de mexer) está
+> em [`HANDOFF.md`](../_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md).
+> Este arquivo responde *o que* está aberto; o handoff responde *como* retomar.
 
 Nada abaixo bloqueia produção. O que bloqueia **evolução** é a seção
 "Decisões que só o professor pode tomar": enquanto elas não vierem, duas

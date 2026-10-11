@@ -1,18 +1,66 @@
 # HANDOFF — retomada da sessão
 
-> **Duas trilhas abertas. Escolha a palavra-chave conforme o que vai fazer:**
->
-> | Palavra-chave | Trilha | Leia primeiro |
-> |---|---|---|
-> | `FASE0-BIOMETRIA` | reconhecimento facial | este arquivo → `fase0-deteccao-resultado.md` → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
-> | `RETOMAR-POSTCSS` | dívida de repositório | [`_reversa_refactor/pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md) |
->
-> As duas são independentes.
->
-> 📋 **Tudo que está em aberto, num lugar só:**
-> [`_reversa_refactor/pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md).
-> Ele é o registro vivo; as auditorias datadas são fotografias. Comece por ele
-> em qualquer das duas trilhas — inclusive para saber o que **não** reabrir.
+# 🔑 `RETOMAR-JIUPRESENCE`
+
+**É a única palavra-chave necessária.** Digite-a numa sessão nova.
+
+Prompt sugerido, para copiar e colar:
+
+> RETOMAR-JIUPRESENCE. Leia `_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md`
+> e `_reversa_refactor/pendencias-abertas.md`, confirme o estado do Git e me
+> diga qual trilha você vai seguir antes de mudar qualquer coisa.
+
+## O que o agente deve fazer, nesta ordem
+
+1. **Ler [`_reversa_refactor/pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md).**
+   É o registro vivo do que está aberto — e, igualmente importante, do que
+   **não** deve ser reaberto. As auditorias datadas são fotografias; não
+   comece por elas.
+2. **Conferir o estado do Git contra o esperado** (abaixo). Se não bater,
+   alguém mexeu depois: descubra o que antes de agir.
+3. **Rodar a verificação antes de alterar qualquer coisa**, para saber se o
+   ponto de partida está verde:
+   ```bash
+   pnpm typecheck && pnpm test
+   ```
+4. **Escolher UMA trilha e dizer qual**, antes de começar.
+5. **Respeitar a regra do Reversa:** antes de escrever fora das pastas
+   próprias, ler `.reversa/reversa-config.json` e obedecer `allowLegacyEdits`
+   e `allowedPaths`.
+
+## Estado esperado ao retomar
+
+Se algum número divergir, o repositório andou desde o último handoff — e o que
+está escrito aqui pode ter envelhecido junto.
+
+```
+main == origin/main, árvore limpa
+pnpm typecheck    14 tarefas
+pnpm test         219 testes — domain 99, application 42, infrastructure 78
+pnpm arch         0 erros (1 aviso pré-existente: test/setup.ts órfão)
+pnpm e2e          23/23 com Supabase local de pé; sem ele, 2 são ignorados
+```
+
+Sem SHA de propósito: um hash anotado no arquivo que o próprio commit escreve
+nasce errado. As contagens de teste são o sinal de deriva que funciona, e
+`git log --oneline -8` mostra se a sessão terminou onde este handoff diz.
+
+Para o E2E completo é preciso Docker e `pnpm exec supabase start --workdir infra`.
+
+## Trilhas
+
+As duas são independentes. A escolha é do usuário, não do agente.
+
+| Trilha | Primeiro passo | Leitura específica |
+|---|---|---|
+| **Dívida** | item 1 do registro: PostCSS, correção de duas linhas | só o registro |
+| **Produto** | biometria — travada em dados e licença, não em código | este arquivo → [`fase0-deteccao-resultado.md`](./fase0-deteccao-resultado.md) → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
+
+> Palavras-chave antigas continuam funcionando e caem aqui:
+> `RETOMAR-POSTCSS` (hoje é o item 1 do registro, não uma trilha) e
+> `FASE0-BIOMETRIA` (a trilha de produto).
+
+---
 
 Data: `2026-10-11` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
 
