@@ -138,8 +138,18 @@ async function executarInicializacao(): Promise<void> {
   }
 }
 
-/** Descarta o container memoizado. Usado pela saída da conta e pelos testes. */
+/**
+ * Descarta o container memoizado. Usado pela saída da conta e pelos testes.
+ *
+ * Desliga antes de soltar a instância: `observarFila` guarda os ouvintes num Set
+ * de MÓDULO, que sobrevive ao descarte. Sem isto, quem chamasse esta função sem
+ * parar o sincronizador deixaria a instância antiga processando o mesmo outbox
+ * em paralelo com a nova. Os dois `parar()` são idempotentes, então `sair()`
+ * continua chamando-os na ordem que ele precisa.
+ */
 export function redefinirContainer(): void {
+  instancia?.sincronizador.parar();
+  instancia?.conectividade.parar();
   instancia = null;
   inicializacao = null;
 }
