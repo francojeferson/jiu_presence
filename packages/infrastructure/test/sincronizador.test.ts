@@ -1,5 +1,5 @@
 import './setup.js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BancoLocal, type ItemDaFila } from '../src/local/db.js';
 import { Outbox } from '../src/local/outbox.js';
 import { SincronizadorOutbox, type EnvioRemoto } from '../src/sync/sincronizador.js';
@@ -65,10 +65,21 @@ async function enfileirarTres(): Promise<[string, string, string]> {
   return [itemA, itemB, itemC];
 }
 
+/**
+ * Instâncias criadas no teste corrente, para desligar no fim.
+ *
+ * `observarFila` guarda os ouvintes num Set de MÓDULO, que sobrevive ao fim
+ * do teste: sem desligar, o sincronizador de um teste anterior continua
+ * reagindo à fila do seguinte e disputa com ele o bloqueio entre abas. É o
+ * mesmo vazamento que `parar()` corrige em produção.
+ */
+const criados: SincronizadorOutbox[] = [];
+
 function montar(respostas: RespostaDoServidor[], online = true) {
   const remoto = new RemotoProgramado(respostas);
   const monitor = new MonitorDeConectividade(new SondaFixa(online));
   const sinc = new SincronizadorOutbox(remoto, monitor, db);
+  criados.push(sinc);
   return { remoto, monitor, sinc };
 }
 
@@ -76,6 +87,10 @@ beforeEach(() => {
   contador = 0;
   db = new BancoLocal(`sinc-${Math.random()}`);
   outbox = new Outbox(db);
+});
+
+afterEach(() => {
+  for (const sinc of criados.splice(0)) sinc.parar();
 });
 
 describe('SincronizadorOutbox', () => {
@@ -235,6 +250,55 @@ describe('SincronizadorOutbox', () => {
       expect(falhas[0]!.erro).toBe(
         'Já existe uma chamada registrada para esta turma neste dia.',
       );
+    });
+  });
+
+  describe('duas abas sobre a mesma fila', () => {
+    // Duas abas são duas instâncias sobre o MESMO banco — é literalmente isto.
+    // O bloqueio `rodando` vive na memória de cada instância e não enxerga a
+    // outra, então nada impede as duas de buscarem o mesmo item.
+
+    it('o mesmo item não é enviado duas vezes', async () => {
+      const a = id();
+      await outbox.enfileirar(a, 'criar_chamada', { id: a }, AGORA.toISOString());
+
+      const aba1 = montar([{ status: 201 }]);
+      const aba2 = montar([
+        // Se o item escapar para a segunda aba, o servidor responde conflito
+        // de chave primária: "você já me mandou isso".
+        { status: 409, codigo: '23505', constraint: 'chamada_pkey' },
+      ]);
+
+      await Promise.all([aba1.sinc.rodada(AGORA), aba2.sinc.rodada(AGORA)]);
+
+      const enviados =
+        aba1.remoto.recebidos.length + aba2.remoto.recebidos.length;
+      expect(enviados).toBe(1);
+      expect(await db.outbox.count()).toBe(0);
+    });
+
+    it('mesmo escapando, a idempotência impede a duplicata', async () => {
+      // Segunda linha de defesa, exercitada sozinha: as duas abas pegam o
+      // item antes de qualquer uma marcar o envio. O registro do professor
+      // sai da fila uma vez só e nada é perdido.
+      const a = id();
+      await outbox.enfileirar(a, 'criar_chamada', { id: a }, AGORA.toISOString());
+
+      const aba1 = montar([{ status: 201 }]);
+      const aba2 = montar([
+        { status: 409, codigo: '23505', constraint: 'chamada_pkey' },
+      ]);
+
+      const [itens1, itens2] = await Promise.all([
+        aba1.sinc['outbox'].prontos(AGORA),
+        aba2.sinc['outbox'].prontos(AGORA),
+      ]);
+      expect(itens1).toHaveLength(1);
+      expect(itens2).toHaveLength(1);
+
+      await Promise.all([aba1.sinc.rodada(AGORA), aba2.sinc.rodada(AGORA)]);
+
+      expect(await db.outbox.count()).toBe(0);
     });
   });
 

@@ -33,6 +33,36 @@ export interface ResultadoDaRodada {
   readonly interrompidaPor: 'fila-vazia' | 'falha-transitoria' | 'ja-rodando';
 }
 
+const OCUPADA: ResultadoDaRodada = {
+  enviados: 0,
+  adiados: 0,
+  falhasPermanentes: 0,
+  interrompidaPor: 'ja-rodando',
+};
+
+/** Nome do bloqueio entre abas. Um por origem, que é o escopo do banco. */
+const BLOQUEIO_DA_FILA = 'jiupresence.outbox';
+
+/**
+ * Roda a tarefa com a fila só para si, quando o navegador oferece Web Locks.
+ *
+ * Devolve `null` quando outra aba já está com a fila — não espera, porque a
+ * outra aba vai esvaziá-la de qualquer jeito e enfileirar uma segunda rodada
+ * só atrasaria a notificação da tela.
+ *
+ * Sem Web Locks, executa assim mesmo: a idempotência continua garantindo que
+ * nada se duplique, e bloquear a sincronização por falta de uma API seria
+ * trocar desperdício por perda.
+ */
+async function comFilaExclusiva<T>(tarefa: () => Promise<T>): Promise<T | null> {
+  const locks = (globalThis.navigator as Navigator | undefined)?.locks;
+  if (!locks) return tarefa();
+
+  return locks.request(BLOQUEIO_DA_FILA, { ifAvailable: true }, async (lock) =>
+    lock === null ? null : tarefa(),
+  );
+}
+
 export class SincronizadorOutbox implements PortaSincronizador {
   private readonly outbox: Outbox;
   private rodando = false;
@@ -120,18 +150,25 @@ export class SincronizadorOutbox implements PortaSincronizador {
     } while (this.rodadaSolicitada);
   }
 
+  /**
+   * EC-08: uma rodada de cada vez, inclusive ENTRE ABAS.
+   *
+   * O bloqueio `rodando` vive na memória da instância e não enxerga a outra
+   * aba: as duas buscavam o mesmo item e o enviavam duas vezes. A chave de
+   * idempotência impedia a duplicata no servidor, mas ela é a segunda linha
+   * de defesa, não a primeira — e pagar duas vezes a rede de um dia offline
+   * sai caro no celular do professor.
+   *
+   * Web Locks e não uma marca no banco: o navegador solta o bloqueio sozinho
+   * quando a aba fecha ou trava. Uma marca gravada ficaria presa, e a fila
+   * inteira com ela.
+   */
   async rodada(agora: Date = new Date()): Promise<ResultadoDaRodada> {
-    // EC-08: bloqueio contra processamento concorrente entre a sincronização
-    // automática e a manual. A chave de idempotência é a segunda linha de
-    // defesa, não a primeira.
-    if (this.rodando) {
-      return {
-        enviados: 0,
-        adiados: 0,
-        falhasPermanentes: 0,
-        interrompidaPor: 'ja-rodando',
-      };
-    }
+    if (this.rodando) return OCUPADA;
+    return (await comFilaExclusiva(() => this.executarRodada(agora))) ?? OCUPADA;
+  }
+
+  private async executarRodada(agora: Date): Promise<ResultadoDaRodada> {
     this.rodando = true;
     await this.notificar();
 
