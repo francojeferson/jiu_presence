@@ -33,6 +33,7 @@ async function semear(page: Page): Promise<void> {
     const agora = new Date().toISOString();
 
     const turmaId = '01930000-0000-7000-8000-000000000001';
+    const turmaSemGrade = '01930000-0000-7000-8000-000000000002';
     const alunoA = '01930000-0000-7000-8000-00000000000a';
     const alunoB = '01930000-0000-7000-8000-00000000000b';
 
@@ -44,6 +45,17 @@ async function semear(page: Page): Promise<void> {
           nome: 'Adulto Noite',
           dias_semana: [0, 1, 2, 3, 4, 5, 6],
           horario: '19:00',
+          ativa: true,
+          criado_em: agora,
+        },
+        // Sem dias fixos de propósito: fica disponível no seletor mas nunca é
+        // pré-selecionada, então a turma inicial não depende da hora em que a
+        // suíte roda.
+        {
+          id: turmaSemGrade,
+          nome: 'Reposicao',
+          dias_semana: [],
+          horario: '07:00',
           ativa: true,
           criado_em: agora,
         },
@@ -71,12 +83,14 @@ async function semear(page: Page): Promise<void> {
 
     loja.put({
       chave: 'matriculas',
-      valor: [alunoA, alunoB].map((aluno_id) => ({
-        aluno_id,
-        turma_id: turmaId,
-        matriculado_em: '2026-01-01',
-        desmatriculado_em: null,
-      })),
+      valor: [turmaId, turmaSemGrade].flatMap((turma_id) =>
+        [alunoA, alunoB].map((aluno_id) => ({
+          aluno_id,
+          turma_id,
+          matriculado_em: '2026-01-01',
+          desmatriculado_em: null,
+        })),
+      ),
       atualizadoEm: agora,
       versaoSchema: 1,
     });
@@ -104,6 +118,78 @@ async function itensNaFila(page: Page): Promise<unknown[]> {
             .getAll();
           consulta.onsuccess = () => {
             resolve(consulta.result as unknown[]);
+            db.close();
+          };
+          consulta.onerror = () => reject(consulta.error);
+        };
+        req.onerror = () => reject(req.error);
+      }),
+  );
+}
+
+/**
+ * Põe na fila um item já recusado em definitivo.
+ *
+ * Chegar a este estado pelo caminho real exigiria um servidor que recusasse
+ * o envio; o que esta suíte precisa provar é o que a tela de Pendências faz
+ * com ele depois — que é onde o dado do professor pode ser perdido.
+ */
+async function semearFalhaPermanente(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('jiupresence');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const id = crypto.randomUUID();
+    const chamadaId = '01930000-0000-7000-8000-0000000000c1';
+    const tx = db.transaction('outbox', 'readwrite');
+    tx.objectStore('outbox').put({
+      id,
+      chaveDeIdempotencia: chamadaId,
+      tipo: 'criar_chamada',
+      // Payload VÁLIDO de propósito: um payload truncado seria recusado pela
+      // validação local antes de qualquer rede, e o teste passaria a ser
+      // sobre corrupção local em vez de sobre a decisão do professor.
+      payload: {
+        id: chamadaId,
+        turma_id: '01930000-0000-7000-8000-000000000001',
+        data: '2026-10-04',
+        realizada_em: '2026-10-04T22:00:00Z',
+        origem: 'manual',
+        total_detectado: null,
+        confirmada: true,
+        criada_offline: true,
+      },
+      criadoEm: new Date().toISOString(),
+      ordem: 9_999,
+      tentativas: 3,
+      proximaTentativaEm: null,
+      estado: 'falha_permanente',
+      erro: 'Já existe uma chamada registrada para esta turma neste dia.',
+    });
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+    return id;
+  });
+}
+
+/** Chaves presentes no cache local. Vazio significa aparelho limpo. */
+async function chavesNoCache(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const req = indexedDB.open('jiupresence');
+        req.onsuccess = () => {
+          const db = req.result;
+          const consulta = db
+            .transaction('cache', 'readonly')
+            .objectStore('cache')
+            .getAllKeys();
+          consulta.onsuccess = () => {
+            resolve(consulta.result as string[]);
             db.close();
           };
           consulta.onerror = () => reject(consulta.error);
@@ -236,6 +322,30 @@ test('o service worker não guarda respostas privadas do Supabase', async ({
 });
 
 /**
+ * Uma página que o professor nunca abriu diretamente precisa abrir sem rede.
+ *
+ * O manifesto gerado pelo Serwist traz só JS, CSS e ícones — nenhum HTML.
+ * Sem as entradas extras de `next.config.ts`, a única página que funcionava
+ * offline era a que por acaso já tinha sido carregada online, e o fallback
+ * `/offline` nem podia ser servido, porque ele próprio não estava em cache.
+ * O professor via o erro de rede do navegador.
+ */
+test('qualquer página abre sem rede, não só a última visitada', async ({
+  page,
+  context,
+}) => {
+  await autenticar(context);
+  await page.goto('/');
+  await aguardarServiceWorker(page);
+
+  await context.setOffline(true);
+  await page.goto('/turmas');
+
+  await expect(page.getByRole('heading', { name: 'Turmas' })).toBeVisible();
+  await expect(page.getByRole('navigation')).toBeVisible();
+});
+
+/**
  * O manifesto só habilita a instalação se os ícones que ele promete existirem
  * de verdade. Eles já faltaram uma vez, e nada na build acusa a ausência.
  */
@@ -364,6 +474,41 @@ test.describe('chamada offline', () => {
     );
   });
 
+  test('trocar de turma não descarta marcações sem avisar', async ({ page, context }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.reload();
+    await context.setOffline(true);
+
+    await page.getByRole('button', { name: /Ana Silva/ }).click();
+    await expect(page.getByRole('button', { name: /Ana Silva/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // A marcação só existe em memória até confirmar: trocar de turma agora
+    // apagaria a chamada inteira, e antes disso acontecia sem aviso nenhum.
+    await page.getByLabel('Turma').selectOption({ label: 'Reposicao · 07:00' });
+    await expect(page.getByText(/descarta essas marcações/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByText(/descarta essas marcações/)).toBeHidden();
+    // Continua na turma original, com a marcação intacta.
+    await expect(page.getByRole('button', { name: /Ana Silva/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    // E quando o professor confirma que quer mesmo, a troca acontece.
+    await page.getByLabel('Turma').selectOption({ label: 'Reposicao · 07:00' });
+    await page.getByRole('button', { name: 'Sim, trocar' }).click();
+    await expect(page.getByRole('button', { name: /Ana Silva/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   test('o indicador mostra as pendências offline', async ({ page, context }) => {
     await page.goto('/chamada');
     await aguardarServiceWorker(page);
@@ -378,6 +523,230 @@ test.describe('chamada offline', () => {
     await expect(page.getByText(/aguardando envio/)).toBeVisible({
       timeout: 10_000,
     });
+  });
+});
+
+/**
+ * As telas de administração.
+ *
+ * Inativar e desativar precisam ter volta. Sem isso, o aluno que retorna ao
+ * tatame e a turma que volta à grade teriam que ser recriados, e o registro
+ * novo não carrega o histórico de frequência do antigo — que é o ativo em
+ * cima do qual a graduação é decidida.
+ */
+test.describe('administração', () => {
+  test.beforeEach(async ({ context }) => {
+    await autenticar(context);
+  });
+
+  async function prepararOffline(page: Page, context: BrowserContext, rota: string) {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.goto(rota);
+    await context.setOffline(true);
+  }
+
+  /**
+   * EC-02: sem data de nascimento a escala é escolhida à mão, e essa escolha
+   * precisa chegar ao caso de uso.
+   *
+   * Antes, o formulário só mandava a escala quando o campo de DATA estava
+   * vazio, e não quando o SELETOR estava visível. Com uma data que não sugere
+   * escala, o professor escolhia a graduação e recebia de volta um erro
+   * mandando informar a graduação — sem saída a não ser apagar a data.
+   */
+  test('cadastra aluno sem data escolhendo a graduação', async ({ page, context }) => {
+    await prepararOffline(page, context, '/alunos');
+
+    await page.getByRole('button', { name: 'Cadastrar aluno' }).click();
+
+    // Ninguém nasce amanhã: o navegador recusa antes de chegar ao caso de uso.
+    const hoje = await page.evaluate(() =>
+      new Date().toLocaleDateString('sv-SE'),
+    );
+    await expect(page.getByLabel(/Data de nascimento/)).toHaveAttribute('max', hoje);
+
+    await page.getByLabel('Nome').fill('Mini Gracie');
+    await page.getByLabel('Graduação').selectOption('infantil');
+    // A escala infantil tem faixas próprias; 'cinza' não existe na adulta.
+    await page.getByLabel(/Faixa atual/).selectOption('cinza');
+    await page.getByRole('button', { name: 'Salvar' }).click();
+
+    const linha = page.getByRole('listitem').filter({ hasText: 'Mini Gracie' });
+    await expect(linha).toBeVisible();
+    await expect(linha.getByText('cinza')).toBeVisible();
+  });
+
+  test('aluno inativado pode voltar', async ({ page, context }) => {
+    await prepararOffline(page, context, '/alunos');
+
+    const linha = page.getByRole('listitem').filter({ hasText: 'Ana Silva' });
+    await linha.getByRole('button', { name: 'Inativar' }).click();
+
+    await expect(linha.getByText('· inativo')).toBeVisible();
+    await expect(linha.getByRole('button', { name: 'Reativar' })).toBeVisible();
+
+    await linha.getByRole('button', { name: 'Reativar' }).click();
+
+    await expect(linha.getByText('· inativo')).toBeHidden();
+    await expect(linha.getByRole('button', { name: 'Inativar' })).toBeVisible();
+  });
+
+  test('turma desativada pode voltar', async ({ page, context }) => {
+    await prepararOffline(page, context, '/chamada');
+
+    // EC-04 só vale com histórico: sem chamada registrada, a turma seria
+    // simplesmente excluída e não haveria desativação para desfazer.
+    await page.getByRole('button', { name: /Ana Silva/ }).click();
+    await page.getByRole('button', { name: /Confirmar 1 presente/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeVisible();
+
+    await page.goto('/turmas');
+    const linha = page.getByRole('listitem').filter({ hasText: 'Adulto Noite' });
+    await linha.getByRole('button', { name: 'Excluir' }).click();
+
+    // A alternativa aparece na MESMA tela que recusou.
+    await page.getByRole('button', { name: 'Desativar em vez de excluir' }).click();
+    await expect(linha.getByText('· desativada')).toBeVisible();
+
+    await linha.getByRole('button', { name: 'Reativar' }).click();
+    await expect(linha.getByText('· desativada')).toBeHidden();
+  });
+});
+
+/**
+ * A tela de Pendências (RF-11).
+ *
+ * Falha permanente nunca é descartada em silêncio: fica visível, explicada em
+ * português e acionável. É a última barreira antes de o registro do professor
+ * se perder, e descartar exige confirmação explícita.
+ */
+test.describe('pendências', () => {
+  test.beforeEach(async ({ context }) => {
+    await autenticar(context);
+  });
+
+  async function prepararComFalha(page: Page, context: BrowserContext) {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await semearFalhaPermanente(page);
+    await context.setOffline(true);
+    await page.goto('/pendencias');
+  }
+
+  test('o indicador leva até a falha, explicada em português', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await semearFalhaPermanente(page);
+    await context.setOffline(true);
+    await page.reload();
+
+    // RF-29: o único estado que pede atenção, porque é o único que exige
+    // decisão do professor.
+    await page
+      .getByRole('link', { name: /precisa da sua atenção/ })
+      .click({ timeout: 10_000 });
+
+    await expect(page.getByRole('heading', { name: 'Pendências' })).toBeVisible();
+    // Dentro do item da lista: 'Chamada' também é o rótulo da aba de baixo.
+    const item = page.getByRole('listitem').filter({ hasText: 'Chamada' });
+    await expect(item.getByText('Chamada', { exact: true })).toBeVisible();
+    await expect(
+      item.getByText('Já existe uma chamada registrada para esta turma neste dia.'),
+    ).toBeVisible();
+  });
+
+  test('descartar exige confirmação explícita', async ({ page, context }) => {
+    await prepararComFalha(page, context);
+
+    await page.getByRole('button', { name: 'Descartar' }).click();
+    await expect(page.getByText(/Não dá para desfazer/)).toBeVisible();
+
+    // Desistir não apaga nada.
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    expect(await itensNaFila(page)).toHaveLength(1);
+
+    await page.getByRole('button', { name: 'Descartar' }).click();
+    await page.getByRole('button', { name: 'Sim, descartar' }).click();
+
+    await expect(page.getByText(/Nada pendente/)).toBeVisible();
+    expect(await itensNaFila(page)).toHaveLength(0);
+  });
+
+  test('tentar de novo devolve o item à fila sem perdê-lo', async ({
+    page,
+    context,
+  }) => {
+    await prepararComFalha(page, context);
+
+    await page.getByRole('button', { name: 'Tentar de novo' }).click();
+
+    // Saiu da lista de falhas, mas continua na fila: offline a tentativa não
+    // tem como suceder, e descartar por isso seria perder o registro.
+    await expect(page.getByText(/Nada pendente/)).toBeVisible();
+    const fila = (await itensNaFila(page)) as { estado: string }[];
+    expect(fila).toHaveLength(1);
+    expect(fila[0]!.estado).toBe('pendente');
+  });
+});
+
+/**
+ * A saída da conta.
+ *
+ * O cache carrega nome e data de nascimento de aluno, inclusive de menores, e
+ * precisa sair do aparelho junto com a sessão. A fila, ao contrário, nunca é
+ * apagada — e por isso a saída é recusada enquanto houver algo nela.
+ */
+test.describe('saída da conta', () => {
+  test.beforeEach(async ({ context }) => {
+    await autenticar(context);
+  });
+
+  test('apaga os dados do aparelho e volta para a entrada', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.goto('/turmas');
+    await context.setOffline(true);
+
+    expect(await chavesNoCache(page)).not.toHaveLength(0);
+
+    await page.getByRole('button', { name: 'Sair da conta' }).click();
+    await expect(page.getByText(/apaga do aparelho/)).toBeVisible();
+    await page.getByRole('button', { name: 'Sim, sair' }).click();
+
+    await expect(page).toHaveURL(/\/entrar$/);
+    expect(await chavesNoCache(page)).toHaveLength(0);
+  });
+
+  test('é recusada enquanto há registro por enviar', async ({ page, context }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.reload();
+    await context.setOffline(true);
+
+    await page.getByRole('button', { name: /Ana Silva/ }).click();
+    await page.getByRole('button', { name: /Confirmar 1 presente/ }).click();
+    await expect(page.getByText(/Chamada registrada/)).toBeVisible();
+
+    await page.goto('/turmas');
+    await page.getByRole('button', { name: 'Sair da conta' }).click();
+
+    await expect(page.getByText(/por enviar/)).toBeVisible();
+    // Não saiu, não perguntou e não apagou nada.
+    await expect(page.getByRole('button', { name: 'Sim, sair' })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/turmas$/);
+    expect(await itensNaFila(page)).not.toHaveLength(0);
   });
 });
 
