@@ -754,6 +754,51 @@ test.describe('saída da conta', () => {
     expect(await chavesNoCache(page)).toHaveLength(0);
   });
 
+  /**
+   * O professor com duas abas abertas.
+   *
+   * A conferência da tela acontece ao tocar em "Sair da conta"; a limpeza, ao
+   * confirmar. Entre as duas há uma janela real, e é nela que este teste
+   * entra: a outra aba confirma a chamada com o aviso de saída já na tela.
+   *
+   * Sem a transação de `limparCacheComFilaVazia`, a saída apagaria o cache e
+   * encerraria a sessão deixando nome e data de nascimento do aluno na fila —
+   * no aparelho, sem sessão para sincronizar e sem ninguém sabendo.
+   */
+  test('a fila que enche no meio da saída ainda a impede', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/chamada');
+    await aguardarServiceWorker(page);
+    await semear(page);
+    await page.goto('/turmas');
+    await context.setOffline(true);
+
+    // A conferência passa: neste instante a fila está mesmo vazia.
+    await page.getByRole('button', { name: 'Sair da conta' }).click();
+    await expect(page.getByText(/apaga do aparelho/)).toBeVisible();
+
+    // Mesma origem, mesmo IndexedDB. É o professor com a chamada aberta na
+    // outra aba, confirmando enquanto decide se sai.
+    const outraAba = await context.newPage();
+    await outraAba.goto('/chamada');
+    await outraAba.getByRole('button', { name: /Ana Silva/ }).click();
+    await outraAba.getByRole('button', { name: /Confirmar 1 presente/ }).click();
+    await expect(outraAba.getByText(/Chamada registrada/)).toBeVisible();
+    expect(await itensNaFila(outraAba)).not.toHaveLength(0);
+
+    await page.getByRole('button', { name: 'Sim, sair' }).click();
+
+    await expect(page.getByText(/por enviar/)).toBeVisible();
+    await expect(page).toHaveURL(/\/turmas$/);
+    // E nada foi apagado: nem o cache, nem a fila.
+    expect(await chavesNoCache(page)).not.toHaveLength(0);
+    expect(await itensNaFila(page)).not.toHaveLength(0);
+
+    await outraAba.close();
+  });
+
   test('é recusada enquanto há registro por enviar', async ({ page, context }) => {
     await page.goto('/chamada');
     await aguardarServiceWorker(page);
