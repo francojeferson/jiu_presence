@@ -1,12 +1,16 @@
 # HANDOFF — retomada da sessão
 
-> **Palavra-chave de retomada: `FASE0-BIOMETRIA`**
+> **Duas trilhas abertas. Escolha a palavra-chave conforme o que vai fazer:**
 >
-> Digite isso em uma sessão nova. O agente deve ler este arquivo primeiro,
-> depois `fase0-deteccao-resultado.md` (ao lado deste), e só então
-> `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1.
+> | Palavra-chave | Trilha | Leia primeiro |
+> |---|---|---|
+> | `FASE0-BIOMETRIA` | reconhecimento facial | este arquivo → `fase0-deteccao-resultado.md` → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
+> | `RETOMAR-POSTCSS` | dívida de repositório | `_reversa_refactor/auditoria-ponytail-2026-10-11.md` |
+>
+> As duas são independentes. A de produto é a biometria; a de dívida tem um
+> item só em aberto (PostCSS vulnerável, correção de duas linhas).
 
-Data: `2026-10-05` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
+Data: `2026-10-11` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
 
 > **Atualizado após a medição de detecção da Fase 0.**
 > O passo 1 do plano anterior está concluído. Dois bloqueios que constavam
@@ -24,19 +28,61 @@ tamanho do rosto em pixel, que hoje é artefato da compressão do WhatsApp.
 
 ---
 
+## Endurecimento — 2026-10-11
+
+> Sessão de auditoria e correção, numa trilha paralela à Fase 0. **Nada abaixo
+> desta seção foi invalidado**: a biometria continua exatamente onde parou.
+>
+> Relatório completo: [`_reversa_refactor/auditoria-ponytail-2026-10-11.md`](../../_reversa_refactor/auditoria-ponytail-2026-10-11.md)
+>
+> Branch: `auditoria/correcoes-e-cobertura`
+
+Treze achados corrigidos, mais três corridas de concorrência descobertas ao
+escrever os testes. O mais grave: uma violação de chave estrangeira era sempre
+transitória, então uma dependência recusada em definitivo **congelava a fila
+inteira em silêncio** — a tela só dizia "aguardando envio", igual a estar
+offline.
+
+Também corrigidos: o pré-cache do PWA não tinha **nenhum documento HTML** (só
+abria offline a página já visitada, e `/offline` nem podia ser servida); a saída
+da conta, que não existia, hoje apaga o cache sem jamais tocar na outbox; e duas
+abas deixaram de enviar o mesmo item duas vezes.
+
+Mudanças de API que afetam quem for mexer no código:
+
+- `SincronizadorOutbox.parar()` — novo, **obrigatório** antes de descartar o
+  container, senão a instância antiga continua escutando a fila.
+- `classificar(resposta, tipo, tentativas)` — terceiro argumento, opcional.
+- `limparCacheComFilaVazia()` em `local/outbox.ts` — a única forma correta de
+  limpar o cache.
+- Removidos por não terem chamador: `Faixa.proxima`/`ehMaxima`,
+  `Aluno.renomear`/`alterarFaixa`/`registrarGraduacao`/`idadeEm`,
+  `Chamada.reabrir`, `DataCivil.brasileiro`, `instanteDoId`,
+  `Outbox.temItemEmVoo`, portas `chamadas.listarRecentes` e
+  `matriculas.daTurma`, tipo de operação `inativar_aluno`. Voltam em 5 linhas
+  quando a feature que os justifica chegar.
+
+⚠️ **Antes de escrever E2E aqui**, leia a seção "Armadilhas de teste" do
+relatório. Cinco delas custaram tempo nesta sessão e vão custar de novo.
+
+---
+
 ## Estado verificado da feature 001
 
-Tudo abaixo foi executado, não presumido:
+Tudo abaixo foi executado, não presumido (números de 2026-10-11):
 
 ```
-pnpm typecheck    9/9 pacotes
-pnpm arch         0 erros
-pnpm test         207/207
-pnpm --filter @jiupresence/web run e2e    4/4 (1 fixme)
-next build        8 rotas · First Load JS 224 kB
-cobertura domínio 98,94%
+turbo typecheck   14 tarefas
+turbo arch        0 erros (1 aviso pré-existente: test/setup.ts órfão)
+turbo test        219 testes — domain 99, application 42, infrastructure 78
+playwright        23/23, nenhum ignorado, contra Supabase local DE PÉ
+next build        8 rotas
+cobertura domínio 96,9% linhas · 98,8% ramos · 95,5% funções
 git status nos caminhos do Flutter: vazio
 ```
+
+A cobertura do domínio caiu de 98,94% para 96,9% porque o código sem chamador
+foi removido junto com seus testes; segue bem acima do limiar de 90%.
 
 `actions.md`: 64/64 fechadas. `.reversa/state.json` → `stage: done`.
 

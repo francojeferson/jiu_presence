@@ -1,101 +1,114 @@
 # JiuPresence
 
-Facial recognition attendance system for Brazilian Jiu-Jitsu academies. Replaces manual attendance sheets with on-device face detection and biometric matching. Built with Flutter, Supabase, and on-device ML.
+Controle de presença para academia de jiu-jítsu. PWA offline-first: o professor
+abre a chamada da turma no celular, marca quem veio com um toque e confirma. Tudo
+é gravado no aparelho e sobe para o Supabase quando houver rede.
 
-## Why
+O alvo é a chamada de uma turma de 20 alunos em menos de 90 segundos, **sem
+depender de internet no tatame**.
 
-Manual attendance tracking in martial arts academies is slow and error-prone. Professors spend 5-10 minutes per class calling names or passing paper sheets. JiuPresence lets them take a single group photo, detects every face, matches against the student database, and marks attendance for the entire class in seconds.
+## Por quê
 
-LGPD (Brazilian federal privacy law) requires explicit consent for biometric data processing. Most academies lack proper documentation. JiuPresence handles the consent flow digitally at registration.
+Chamada em papel é lenta e se perde. O professor gasta de 5 a 10 minutos por aula
+chamando nome por nome, e a folha não responde a pergunta que importa na hora de
+graduar alguém: quem faltou, e com que frequência.
 
-## Key Features
+A academia também costuma não ter sinal no tatame. Qualquer solução que exija
+rede para registrar presença volta para o papel no primeiro dia ruim de conexão.
+Por isso o offline aqui não é um modo degradado: é o caminho normal.
 
-- **On-device face detection** - Google ML Kit detects faces in group photos. All processing stays on the device, no cloud ML involved.
-- **FaceNet-style embedding matching** - tflite_flutter extracts 128D face embeddings and matches them via cosine similarity against the database.
-- **Manual override** - If confidence is below threshold, the professor selects the student manually. Target accuracy is 85-90%.
-- **LGPD digital consent** - Students sign the consent term on the device during registration. Separate guardian consent for minors.
-- **PDF attendance reports** - Daily, weekly, monthly, annual reports via Syncfusion PDF.
-- **Push notifications** - Firebase Cloud Messaging sends alerts when a student reaches attendance milestones for belt promotion.
-- **Supabase backend** - PostgreSQL with pgvector extension for storing and querying face embeddings. Auth, storage, and realtime built-in.
-- **Manual license activation** - Web dashboard for academy license management. No automatic payments.
-- **Portuguese interface** - All UI text in Portuguese, designed for non-technical professors.
+## O que já funciona
 
-## Architecture
+- **Chamada offline de ponta a ponta.** A lista mostra todos os matriculados,
+  presentes e ausentes. Um toque alterna. Confirmar grava no aparelho.
+- **Fila de sincronização que não perde nada.** Toda escrita passa por um outbox
+  no IndexedDB, mesmo havendo rede. Ele sobrevive a recarga, a fechamento do app
+  e a dias sem conexão, e nada é descartado em silêncio.
+- **Cadastro de alunos e turmas**, com matrícula, inativação reversível e busca
+  insensível a acento.
+- **Pendências visíveis.** O que o servidor recusou em definitivo aparece
+  explicado em português, com as opções de tentar de novo ou descartar.
+- **PWA instalável**, que abre sem rede depois da primeira visita online.
 
-Single Flutter codebase targeting Android, iOS, and web (web for dashboards/reports only).
+## O que ainda não existe
+
+- **Reconhecimento facial.** A porta está declarada no domínio
+  (`packages/domain/src/portas/reconhecimento-facial.ts`) e nenhuma
+  implementação foi escrita. A Fase 0 mediu a detecção; o reconhecimento
+  depende de fotos sem recompressão e de um modelo com licença permissiva.
+  Ver `_reversa_sdd/sdd/biometria-facial-on-device.md`.
+- Relatórios em PDF, notificações e graduação.
+
+## Arquitetura
+
+Monorepo pnpm com Arquitetura Limpa. A regra de dependência é verificada no CI
+pelo `dependency-cruiser` e por um teste do domínio: nenhuma camada importa de
+camada mais externa.
 
 ```
-Flutter App
-├── UI Layer (Screens)
-│   ├── LoginScreen         Email/password auth
-│   ├── RegistrationScreen  Student registration + LGPD consent
-│   ├── HomeScreen          Dashboard, attendance, reports
-│   └── FaceCaptureScreen   Camera + face detection + embedding
-├── Service Layer
-│   └── SupabaseService     Singleton wrapping Supabase client
-└── ML Layer
-    └── FaceNetService      Google ML Kit + tflite_flutter
+apps/web            PWA Next.js — telas e composition root
+packages/domain     Entidades e regras. Zero dependência de runtime.
+packages/application Casos de uso. Depende só de portas.
+packages/contracts  Schemas de fronteira (Zod). Pacote folha.
+packages/infrastructure IndexedDB (Dexie), Supabase, outbox, sincronização
+infra/supabase      Migrações SQL com RLS desde a primeira
 ```
 
-## Tech Stack
+| Camada | Tecnologia |
+|---|---|
+| Interface | Next.js 15, React 19, PWA via Serwist |
+| Armazenamento local | IndexedDB com Dexie |
+| Backend | Supabase (PostgreSQL + Auth), RLS em todas as tabelas |
+| Validação | Zod, só no pacote `contracts` |
+| Testes | Vitest (unidade) e Playwright (ponta a ponta, com rede controlada) |
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Flutter 3.2+, Dart |
-| Face Detection | google_mlkit_face_detection |
-| Face Embeddings | tflite_flutter (FaceNet model) |
-| Backend | Supabase (PostgreSQL + pgvector + Auth + Storage) |
-| Push Notifications | Firebase Cloud Messaging |
-| PDF Reports | Syncfusion Flutter PDF |
-| Validation | image_picker, camera, cpf_cnpj_validator |
+## Começando
 
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK >=3.2.0
-- Supabase project with the schema from `supabase/schema.sql`
-- Firebase project for Cloud Messaging
-- FaceNet .tflite model file (not included in this repo)
-
-### Setup
+Requisitos: Node >= 20.11 e pnpm 9.
 
 ```bash
-git clone https://github.com/francojeferson/jiu_presence.git
-cd jiu_presence
-flutter pub get
+pnpm install
+cp apps/web/.env.example apps/web/.env.local   # preencha URL e chave anônima
+pnpm dev
 ```
 
-Configure Supabase credentials in `lib/services/supabase_service.dart`.
-
-Run on device:
+Verificação completa, a mesma do CI:
 
 ```bash
-flutter run
+pnpm typecheck     # tipos em todos os pacotes
+pnpm arch          # regra de dependência da Arquitetura Limpa
+pnpm test          # unidade, com limiar de cobertura no domínio
+pnpm build
+pnpm e2e           # Playwright; sobe o app em modo produção
 ```
 
-Run tests:
+O cenário de ponta a ponta contra o Supabase de verdade exige o serviço local:
 
 ```bash
-flutter test
+pnpm exec supabase start --workdir infra
 ```
 
-### Supabase Schema
+Sem ele, os testes que dependem de RLS e login real são **ignorados**, não
+reprovados.
 
-The schema in `supabase/schema.sql` includes:
+## O projeto Flutter é legado, não o produto
 
-- `academia` table - Academy registration with license expiration
-- `aluno` table - Student data with embedding vector(128) and LGPD consent fields
-- `presenca` table - Attendance records
+`lib/`, `test/`, `web/`, `windows/`, `supabase/schema.sql` e `pubspec.yaml` são
+de duas tentativas anteriores em Flutter com reconhecimento facial. Estão
+**preservados e congelados**: um passo do CI reprova qualquer alteração neles.
 
-The `pgvector` extension enables cosine similarity queries for face matching directly in the database.
+A remoção tem critérios próprios em
+`_reversa_sdd/sdd/descomissionamento-do-legado.md`, e nenhum deles é "o CI
+passou". Não use `lib/services/supabase_service.dart` como referência: ele traz
+credenciais de exemplo no código, exatamente o que a aplicação atual não faz.
 
-## Current Status
+## Documentação
 
-MVP in early development. Core screens are implemented with mocked ML processing. The face detection pipeline uses real Google ML Kit detection but returns mock embeddings until the FaceNet .tflite model is added to assets.
+- `_reversa_sdd/` — PRD e especificações
+- `_reversa_forward/001-fundacao-e-chamada-manual/HANDOFF.md` — estado atual e
+  como retomar
+- `_reversa_refactor/` — auditorias do repositório, em ordem de data
 
-See `.memory-bank/` for detailed project documentation.
+## Licença
 
-## License
-
-See LICENSE file (not yet defined).
+Ainda não definida.

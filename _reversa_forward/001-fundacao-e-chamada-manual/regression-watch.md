@@ -30,6 +30,14 @@
 | O036 | Service worker: `clientsClaim: true` e `skipWaiting: false` | `fundacao-arquitetural` RF-06, EC-02 | `e2e/chamada-offline.spec.ts` — inverter clientsClaim quebra o teste |
 | O037 | Gravação local e enfileiramento na mesma transação | `sincronizacao-offline-first` RNF-01 | ⚠️ **sem teste de falha parcial** — a transação Dexie é a garantia |
 | O038 | Nenhum dado pessoal no log | `fundacao-arquitetural` §12 | ⚠️ **sem teste** — higienização por lista de campos em `log.ts` |
+| O040 | Dependência recusada em definitivo não congela a fila | `sincronizacao-offline-first` EC-03 | `infrastructure/test/classificacao.test.ts`, `sincronizador.test.ts` — **verificação negativa comprovada** |
+| O041 | Toda rota do app abre offline, não só a última visitada | `fundacao-arquitetural` RF-06 | `e2e/chamada-offline.spec.ts` — **verificação negativa comprovada** |
+| O042 | Sair apaga o cache e NUNCA a outbox; recusa com fila cheia | `fundacao-arquitetural` §12 (LGPD) | `infrastructure/test/outbox.test.ts`, `e2e` (inclusive corrida de duas abas) — **verificação negativa comprovada** |
+| O043 | Uma rodada de sincronização por vez, inclusive entre abas | `sincronizacao-offline-first` EC-08 | `infrastructure/test/sincronizador.test.ts` — **duplicata medida antes da correção** |
+| O044 | Inativar aluno e desativar turma têm volta | `gestao-de-alunos-e-turmas` RF-14, EC-04 | `e2e/chamada-offline.spec.ts` |
+| O045 | Trocar de turma não descarta marcações sem avisar | `chamada-e-presenca` RF-18 | `e2e/chamada-offline.spec.ts` |
+| O046 | Cache do servidor paginado; nada é cortado em silêncio | `sincronizacao-offline-first` RF-22 | `infrastructure/test/cache.test.ts` |
+| O047 | A mensagem de login não distingue email de senha | `fundacao-arquitetural` RF-08 | `e2e/chamada-offline.spec.ts` (exige Supabase local) |
 | O039 | O legado Flutter permanece intocado | `descomissionamento-do-legado` | `.github/workflows/web-ci.yml`, passo dedicado |
 | O005 | Faixa coerente com a escala; escalas não se misturam | `gestao-de-alunos-e-turmas` RF-09 | `domain/test/faixa.test.ts` |
 | O006 | Escala derivada da idade; escolha explícita sem data de nascimento | `gestao-de-alunos-e-turmas` RF-11 | `domain/test/faixa.test.ts`, `domain/test/aluno.test.ts` |
