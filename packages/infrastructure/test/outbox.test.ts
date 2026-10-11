@@ -237,19 +237,6 @@ describe('Outbox', () => {
   });
 
   describe('concorrência (EC-08)', () => {
-    it('detecta item em voo', async () => {
-      const a = id();
-      const item = await outbox.enfileirar(
-        a,
-        'criar_chamada',
-        {},
-        '2026-10-04T10:00:00Z',
-      );
-      expect(await outbox.temItemEmVoo()).toBe(false);
-      await outbox.marcarEnviando(item);
-      expect(await outbox.temItemEmVoo()).toBe(true);
-    });
-
     it('item em voo não é entregue de novo', async () => {
       const a = id();
       const item = await outbox.enfileirar(

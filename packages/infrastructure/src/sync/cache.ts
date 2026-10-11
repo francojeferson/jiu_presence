@@ -72,9 +72,15 @@ export class SincronizadorDeCache {
     if (ordemInicial === null) return false;
 
     const [turmas, alunos, matriculas, chamadas] = await Promise.all([
-      this.buscar('turma', linhaTurmaSchema),
-      this.buscar('aluno', linhaAlunoSchema),
-      this.buscar('matricula', linhaMatriculaSchema),
+      this.buscarTudo('turma', linhaTurmaSchema, (q) => q.order('id')),
+      this.buscarTudo('aluno', linhaAlunoSchema, (q) => q.order('id')),
+      // `matricula` não tem id: a chave é composta. A ordenação precisa ser
+      // TOTAL, senão a paginação repete e pula linhas entre as páginas.
+      this.buscarTudo('matricula', linhaMatriculaSchema, (q) =>
+        q.order('aluno_id').order('turma_id').order('matriculado_em'),
+      ),
+      // Esta é a única consulta com teto próprio, bem abaixo do limite do
+      // servidor: só as chamadas recentes interessam offline.
       this.buscar('chamada', linhaChamadaSchema, (q) =>
         q.order('data', { ascending: false }).limit(CHAMADAS_RECENTES),
       ),
@@ -133,16 +139,33 @@ export class SincronizadorDeCache {
   private async buscarPresencas(chamadaIds: readonly string[]): Promise<LinhaPresenca[]> {
     if (chamadaIds.length === 0) return [];
 
-    const presencas: LinhaPresenca[] = [];
+    return this.buscarTudo('presenca', linhaPresencaSchema, (q) =>
+      q.in('chamada_id', chamadaIds).order('id'),
+    );
+  }
+
+  /**
+   * Busca a tabela inteira, página a página.
+   *
+   * Sem o laço, o PostgREST devolve no máximo `max_rows` (1000 por padrão)
+   * SEM erro nenhum: a lista chega cortada e o professor vê alunos sumirem da
+   * chamada sem que nada na tela explique por quê.
+   *
+   * `ordenar` é obrigatório porque paginar sem ordem total faz o servidor
+   * devolver linhas repetidas numa página e omitidas em outra.
+   */
+  private async buscarTudo<T>(
+    tabela: string,
+    schema: Schema<T>,
+    ordenar: (consulta: ConsultaSupabase) => ConsultaSupabase,
+  ): Promise<T[]> {
+    const todas: T[] = [];
     for (let inicio = 0; ; inicio += TAMANHO_DA_PAGINA) {
-      const pagina = await this.buscar('presenca', linhaPresencaSchema, (q) =>
-        q
-          .in('chamada_id', chamadaIds)
-          .order('id')
-          .range(inicio, inicio + TAMANHO_DA_PAGINA - 1),
+      const pagina = await this.buscar(tabela, schema, (q) =>
+        ordenar(q).range(inicio, inicio + TAMANHO_DA_PAGINA - 1),
       );
-      presencas.push(...pagina);
-      if (pagina.length < TAMANHO_DA_PAGINA) return presencas;
+      todas.push(...pagina);
+      if (pagina.length < TAMANHO_DA_PAGINA) return todas;
     }
   }
 

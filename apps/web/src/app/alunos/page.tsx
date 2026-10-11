@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  DataCivil,
   FAIXAS_ADULTA,
   FAIXAS_INFANTIL,
   type Aluno,
@@ -63,8 +64,12 @@ export default function PaginaDeAlunos(): React.ReactElement {
       await recarregar();
     } catch (e) {
       setErro(mensagemDe(e));
-      // RF-15: a alternativa é oferecida na MESMA tela que recusou.
-      if (alternativaDe(e) === 'inativar') setOfereceInativar(aluno.id);
+      // RF-15: a alternativa é oferecida na MESMA tela que recusou. Só faz
+      // sentido para quem ainda está ativo: oferecer "inativar" a um aluno já
+      // inativo seria um botão que não muda nada.
+      if (alternativaDe(e) === 'inativar' && aluno.ativo) {
+        setOfereceInativar(aluno.id);
+      }
     }
   }
 
@@ -73,6 +78,18 @@ export default function PaginaDeAlunos(): React.ReactElement {
     setOfereceInativar(null);
     try {
       await container().aluno.inativar(alunoId as never);
+      await recarregar();
+    } catch (e) {
+      setErro(mensagemDe(e));
+    }
+  }
+
+  /** O aluno que voltou a treinar depois de um tempo fora (RF-14). */
+  async function reativar(alunoId: string): Promise<void> {
+    setErro(null);
+    setOfereceInativar(null);
+    try {
+      await container().aluno.reativar(alunoId as never);
       await recarregar();
     } catch (e) {
       setErro(mensagemDe(e));
@@ -157,15 +174,35 @@ export default function PaginaDeAlunos(): React.ReactElement {
                       )}
                     </span>
                     <span className="faixa-aluno">{aluno.faixa.nome}</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        aluno.ativo ? void inativar(aluno.id) : void excluir(aluno)
-                      }
-                      style={{ minWidth: 'auto', padding: '0 0.75rem' }}
-                    >
-                      {aluno.ativo ? 'Inativar' : 'Excluir'}
-                    </button>
+                    {aluno.ativo ? (
+                      <button
+                        type="button"
+                        onClick={() => void inativar(aluno.id)}
+                        style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                      >
+                        Inativar
+                      </button>
+                    ) : (
+                      <>
+                        {/* Sem isto a inativação não tinha volta: o aluno que
+                            retorna ao tatame teria que ser cadastrado de novo,
+                            duplicando o histórico que decide a graduação. */}
+                        <button
+                          type="button"
+                          onClick={() => void reativar(aluno.id)}
+                          style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                        >
+                          Reativar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void excluir(aluno)}
+                          style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )}
                   </div>
                 </li>
               ))}
@@ -218,7 +255,13 @@ function FormularioDeAluno({
     try {
       await container().aluno.cadastrar({
         nome,
-        ...(dataNascimento !== '' ? { dataNascimento } : { escala: escalaManual }),
+        ...(dataNascimento !== '' ? { dataNascimento } : {}),
+        // A escala acompanha o SELETOR, não o campo de data: com uma data que
+        // não sugere escala (um ano digitado errado, por exemplo), o seletor
+        // aparece e a escolha dele precisa chegar ao caso de uso. Amarrar ao
+        // campo de data deixava o professor preso num erro que o mandava
+        // fazer o que ele acabara de fazer.
+        ...(escalaSugerida === null ? { escala: escalaManual } : {}),
         faixa,
         ...(turmaIds.length > 0 ? { turmaIds: turmaIds as never[] } : {}),
       });
@@ -249,6 +292,9 @@ function FormularioDeAluno({
         <input
           type="date"
           value={dataNascimento}
+          // Ninguém nasce amanhã. O navegador recusa antes do envio, o que
+          // economiza uma ida ao caso de uso para dizer a mesma coisa.
+          max={DataCivil.hoje().iso}
           onChange={(e) => setDataNascimento(e.target.value)}
         />
       </label>

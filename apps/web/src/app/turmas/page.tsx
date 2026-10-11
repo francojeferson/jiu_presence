@@ -1,18 +1,24 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NOMES_DOS_DIAS, type Turma } from '@jiupresence/domain';
-import { container } from '@/composicao/container';
+import { container, sair } from '@/composicao/container';
 import { alternativaDe, mensagemDe } from '@/lib/erros';
 
 export default function PaginaDeTurmas(): React.ReactElement {
+  const router = useRouter();
   const [turmas, setTurmas] = useState<Turma[] | null>(null);
   const [criando, setCriando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [ofereceDesativar, setOfereceDesativar] = useState<string | null>(null);
+  const [saindo, setSaindo] = useState(false);
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
 
   async function recarregar(): Promise<void> {
-    setTurmas(await container().turma.listarAtivas());
+    // Todas, não só as ativas: uma turma desativada precisa continuar visível
+    // para poder voltar.
+    setTurmas(await container().turma.listarTodas());
   }
 
   useEffect(() => {
@@ -30,8 +36,22 @@ export default function PaginaDeTurmas(): React.ReactElement {
       await recarregar();
     } catch (e) {
       setErro(mensagemDe(e));
-      // EC-04: a alternativa aparece na mesma tela que recusou.
-      if (alternativaDe(e) === 'inativar') setOfereceDesativar(turma.id);
+      // EC-04: a alternativa aparece na mesma tela que recusou. Só para quem
+      // ainda está ativa — desativar uma turma já desativada não muda nada.
+      if (alternativaDe(e) === 'inativar' && turma.ativa) {
+        setOfereceDesativar(turma.id);
+      }
+    }
+  }
+
+  async function reativar(turmaId: string): Promise<void> {
+    setErro(null);
+    setOfereceDesativar(null);
+    try {
+      await container().turma.reativar(turmaId as never);
+      await recarregar();
+    } catch (e) {
+      setErro(mensagemDe(e));
     }
   }
 
@@ -43,6 +63,45 @@ export default function PaginaDeTurmas(): React.ReactElement {
       await recarregar();
     } catch (e) {
       setErro(mensagemDe(e));
+    }
+  }
+
+  async function sairDaConta(): Promise<void> {
+    setErro(null);
+    setSaindo(true);
+    try {
+      // A fila sobrevive à saída, mas fica órfã: a próxima sessão pode ser de
+      // outra pessoa, e ninguém mais saberia que aquilo estava por enviar.
+      const { pendentes, falhasPermanentes } =
+        await container().sincronizador.estado();
+      const naFila = pendentes + falhasPermanentes;
+      if (naFila > 0) {
+        setErro(
+          naFila === 1
+            ? 'Ainda há 1 registro por enviar. Conecte e aguarde o envio antes de sair.'
+            : `Ainda há ${naFila} registros por enviar. Conecte e aguarde o envio antes de sair.`,
+        );
+        return;
+      }
+
+      setConfirmandoSaida(true);
+    } catch (e) {
+      setErro(mensagemDe(e));
+    } finally {
+      setSaindo(false);
+    }
+  }
+
+  async function confirmarSaida(): Promise<void> {
+    setConfirmandoSaida(false);
+    setSaindo(true);
+    try {
+      await sair();
+      router.replace('/entrar');
+    } catch (e) {
+      setErro(mensagemDe(e));
+    } finally {
+      setSaindo(false);
     }
   }
 
@@ -103,6 +162,9 @@ export default function PaginaDeTurmas(): React.ReactElement {
                   <div className="linha-aluno" style={{ cursor: 'default' }}>
                     <span className="nome-aluno">
                       {turma.nome}
+                      {!turma.ativa && (
+                        <span className="faixa-aluno"> · desativada</span>
+                      )}
                       <span className="faixa-aluno">
                         {' · '}
                         {turma.diasSemana.length === 0
@@ -111,17 +173,72 @@ export default function PaginaDeTurmas(): React.ReactElement {
                       </span>
                     </span>
                     <span className="faixa-aluno">{turma.horario}</span>
-                    <button
-                      type="button"
-                      onClick={() => void excluir(turma)}
-                      style={{ minWidth: 'auto', padding: '0 0.75rem' }}
-                    >
-                      Excluir
-                    </button>
+                    {turma.ativa ? (
+                      <button
+                        type="button"
+                        onClick={() => void excluir(turma)}
+                        style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                      >
+                        Excluir
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void reativar(turma.id)}
+                          style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                        >
+                          Reativar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void excluir(turma)}
+                          style={{ minWidth: 'auto', padding: '0 0.75rem' }}
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )}
                   </div>
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* A saída mora aqui, e não na navegação de baixo, porque é um ato
+              raro e porque a barra do polegar não pode ganhar um quarto alvo
+              ao lado do botão usado durante a chamada. */}
+          {confirmandoSaida ? (
+            <div className="cartao" style={{ marginTop: '2rem' }}>
+              <p className="erro-texto" style={{ marginTop: 0 }}>
+                Sair apaga do aparelho a lista de alunos e turmas. Elas voltam
+                do servidor na próxima entrada, que exige internet.
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button type="button" onClick={() => void confirmarSaida()}>
+                  Sim, sair
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoSaida(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void sairDaConta()}
+              disabled={saindo}
+              style={{
+                width: '100%',
+                marginTop: '2rem',
+                color: 'var(--texto-suave)',
+              }}
+            >
+              {saindo ? 'Saindo…' : 'Sair da conta'}
+            </button>
           )}
         </>
       )}

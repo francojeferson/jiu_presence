@@ -101,7 +101,6 @@ export type LinhaPresenca = z.infer<typeof linhaPresencaSchema>;
 export const payloadPorTipo = {
   criar_aluno: linhaAlunoSchema,
   atualizar_aluno: linhaAlunoSchema,
-  inativar_aluno: z.object({ id: idSchema, ativo: z.literal(false) }),
   excluir_aluno: z.object({ id: idSchema }),
   criar_turma: linhaTurmaSchema,
   atualizar_turma: linhaTurmaSchema,

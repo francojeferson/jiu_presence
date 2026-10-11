@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classificar,
   mensagemParaOProfessor,
+  TENTATIVAS_ATE_DEPENDENCIA_DESISTIR,
   type RespostaDoServidor,
 } from '../src/sync/classificacao.js';
 
@@ -76,6 +77,26 @@ describe('classificação da resposta do servidor', () => {
       expect(
         classificar({ status: 409, codigo: '23503' }, 'criar_presenca'),
       ).toBe('transitorio');
+    });
+
+    it('a dependência que nunca chega vira falha permanente', () => {
+      // Esgotada a escala de esperas, a entidade referenciada não vai subir:
+      // ela própria foi recusada em definitivo. Insistir manteria a fila
+      // inteira travada atrás deste item, em silêncio.
+      const resposta = { status: 409, codigo: '23503' };
+      expect(
+        classificar(
+          resposta,
+          'criar_presenca',
+          TENTATIVAS_ATE_DEPENDENCIA_DESISTIR - 1,
+        ),
+      ).toBe('transitorio');
+      expect(
+        classificar(resposta, 'criar_presenca', TENTATIVAS_ATE_DEPENDENCIA_DESISTIR),
+      ).toBe('permanente');
+      expect(mensagemParaOProfessor(resposta, 'criar_presenca')).toContain(
+        'depende de outro',
+      );
     });
 
     it('histórico no servidor impede exclusão sem envenenar a fila', () => {

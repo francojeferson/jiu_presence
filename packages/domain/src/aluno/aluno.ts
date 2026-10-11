@@ -85,55 +85,6 @@ export class Aluno {
     return { ...this.estado };
   }
 
-  idadeEm(referencia: DataCivil): number | null {
-    return DataCivil.idadeEm(this.estado.dataNascimento, referencia);
-  }
-
-  /**
-   * A escala registrada diverge da que a idade sugere?
-   *
-   * EC-01 de gestao-de-alunos-e-turmas: quando a criança cruza a idade de
-   * corte, o sistema SINALIZA mas não converte. A escala em que o aluno
-   * compete é decisão do professor, não consequência automática de um
-   * aniversário.
-   */
-  escalaDivergeDaIdade(referencia: DataCivil): boolean {
-    const sugerida = Faixa.escalaPorIdade(this.idadeEm(referencia));
-    return sugerida !== null && sugerida !== this.escala;
-  }
-
-  renomear(nome: string, agora: Date = new Date()): void {
-    const limpo = nome.trim();
-    if (limpo.length === 0) throw new CampoObrigatorio('nome');
-    this.estado = {
-      ...this.estado,
-      nome: limpo,
-      atualizadoEm: agora.toISOString(),
-    };
-  }
-
-  alterarFaixa(escala: Escala, faixa: string, agora: Date = new Date()): void {
-    this.estado = {
-      ...this.estado,
-      faixa: Faixa.criar(escala, faixa),
-      atualizadoEm: agora.toISOString(),
-    };
-  }
-
-  registrarGraduacao(
-    escala: Escala,
-    faixa: string,
-    data: DataCivil,
-    agora: Date = new Date(),
-  ): void {
-    this.estado = {
-      ...this.estado,
-      faixa: Faixa.criar(escala, faixa),
-      dataUltimaGraduacao: data,
-      atualizadoEm: agora.toISOString(),
-    };
-  }
-
   /**
    * RF-14: inativação preserva o histórico. O aluno some da chamada, mas tudo
    * que ele já fez continua consultável e contabilizado no período em que

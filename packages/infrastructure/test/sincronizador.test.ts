@@ -7,7 +7,10 @@ import {
   MonitorDeConectividade,
   type SondaDeRede,
 } from '../src/sync/conectividade.js';
-import type { RespostaDoServidor } from '../src/sync/classificacao.js';
+import {
+  TENTATIVAS_ATE_DEPENDENCIA_DESISTIR,
+  type RespostaDoServidor,
+} from '../src/sync/classificacao.js';
 
 class SondaFixa implements SondaDeRede {
   constructor(public online = true) {}
@@ -174,6 +177,27 @@ describe('SincronizadorOutbox', () => {
         'excluir_aluno',
         'excluir_aluno',
       ]);
+    });
+
+    it('a dependência que nunca chega para de travar a fila', async () => {
+      // O item do qual este depende foi recusado em definitivo, então ele
+      // responderá 23503 para sempre. Como `prontos()` corta a fila no
+      // primeiro item em espera, insistir deixaria TUDO atrás dele sem nunca
+      // subir, e a tela só diria "aguardando envio".
+      const [a, b, c] = await enfileirarTres();
+      await db.outbox.update(a, {
+        tentativas: TENTATIVAS_ATE_DEPENDENCIA_DESISTIR,
+      });
+      const { remoto, sinc } = montar([{ status: 409, codigo: '23503' }]);
+
+      const resultado = await sinc.rodada(AGORA);
+
+      expect(await db.outbox.get(a)).toMatchObject({
+        estado: 'falha_permanente',
+      });
+      expect(resultado.falhasPermanentes).toBe(1);
+      // A fila retomou do item seguinte, na mesma rodada.
+      expect(remoto.recebidos.map((item) => item.id)).toEqual([a, b, c]);
     });
   });
 

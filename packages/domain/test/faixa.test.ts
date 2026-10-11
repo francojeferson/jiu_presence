@@ -45,39 +45,6 @@ describe('Faixa', () => {
     expect(comuns).toEqual(['branca']);
   });
 
-  describe('progressão', () => {
-    it('devolve a próxima faixa da mesma escala', () => {
-      expect(Faixa.criar('adulta', 'branca').proxima()?.nome).toBe('azul');
-      expect(Faixa.criar('adulta', 'roxa').proxima()?.nome).toBe('marrom');
-      expect(Faixa.criar('infantil', 'cinza').proxima()?.nome).toBe('amarela');
-    });
-
-    it('a próxima faixa permanece na mesma escala', () => {
-      const proxima = Faixa.criar('infantil', 'branca').proxima();
-      expect(proxima?.escala).toBe('infantil');
-    });
-
-    it('não propõe próxima faixa a quem já está na última', () => {
-      const preta = Faixa.criar('adulta', 'preta');
-      expect(preta.ehMaxima).toBe(true);
-      expect(preta.proxima()).toBeNull();
-
-      const verde = Faixa.criar('infantil', 'verde');
-      expect(verde.ehMaxima).toBe(true);
-      expect(verde.proxima()).toBeNull();
-    });
-
-    it('percorre a escala inteira até a última faixa', () => {
-      let atual: Faixa | null = Faixa.criar('adulta', 'branca');
-      const percorridas: string[] = [];
-      while (atual !== null) {
-        percorridas.push(atual.nome);
-        atual = atual.proxima();
-      }
-      expect(percorridas).toEqual([...FAIXAS_ADULTA]);
-    });
-  });
-
   describe('escala por idade', () => {
     it('usa a escala adulta a partir da idade de corte', () => {
       expect(Faixa.escalaPorIdade(IDADE_CORTE_ESCALA)).toBe('adulta');

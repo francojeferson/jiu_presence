@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  comoId,
-  ehId,
-  instanteDoId,
-  novoId,
-} from '../src/valor/identidade.js';
+import { comoId, ehId, novoId } from '../src/valor/identidade.js';
 
 describe('identidade (UUID v7)', () => {
   it('gera identificadores em formato UUID válido', () => {
@@ -35,11 +30,6 @@ describe('identidade (UUID v7)', () => {
     const antigo = novoId(1_000_000_000_000);
     const recente = novoId(1_700_000_000_000);
     expect(antigo < recente).toBe(true);
-  });
-
-  it('preserva o instante de criação no próprio identificador', () => {
-    const instante = 1_767_225_600_000;
-    expect(instanteDoId(novoId(instante))).toBe(instante);
   });
 
   it('mantém a ordem ao longo de muitos instantes crescentes', () => {

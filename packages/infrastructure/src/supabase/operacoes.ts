@@ -50,7 +50,6 @@ function respostaDeErro(erro: ErroPostgrest, statusPadrao = 400): RespostaDoServ
 const TABELA_POR_TIPO: Record<TipoDeOperacao, string> = {
   criar_aluno: 'aluno',
   atualizar_aluno: 'aluno',
-  inativar_aluno: 'aluno',
   excluir_aluno: 'aluno',
   criar_turma: 'turma',
   atualizar_turma: 'turma',
@@ -84,7 +83,6 @@ export class OperacoesRemotas {
 
         case 'atualizar_aluno':
         case 'atualizar_turma':
-        case 'inativar_aluno':
         case 'confirmar_chamada':
           return await this.atualizarPorId(tabela, payload);
 

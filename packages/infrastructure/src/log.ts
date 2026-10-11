@@ -48,11 +48,12 @@ function higienizar(
 
 export const log = {
   registrar(nivel: Nivel, evento: string, dados?: Record<string, unknown>): void {
+    const limpos = higienizar(dados);
     const linha: EventoDeLog = {
       ts: new Date().toISOString(),
       nivel,
       evento,
-      ...(higienizar(dados) ? { dados: higienizar(dados)! } : {}),
+      ...(limpos ? { dados: limpos } : {}),
     };
     const metodo = nivel === 'erro' ? 'error' : nivel === 'aviso' ? 'warn' : 'log';
     // eslint-disable-next-line no-console

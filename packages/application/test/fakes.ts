@@ -98,9 +98,6 @@ export class TurmasEmMemoria implements RepositorioDeTurmas {
 export class MatriculasEmMemoria implements RepositorioDeMatriculas {
   readonly itens: Matricula[] = [];
 
-  async daTurma(turmaId: Id): Promise<Matricula[]> {
-    return this.itens.filter((m) => m.turmaId === turmaId);
-  }
   async doAluno(alunoId: Id): Promise<Matricula[]> {
     return this.itens.filter((m) => m.alunoId === alunoId);
   }
@@ -128,9 +125,6 @@ export class ChamadasEmMemoria implements RepositorioDeChamadas {
       if (c.turmaId === turmaId && c.data.igual(data)) return c;
     }
     return null;
-  }
-  async listarRecentes(limite: number): Promise<Chamada[]> {
-    return [...this.itens.values()].slice(0, limite);
   }
   async salvar(chamada: Chamada): Promise<void> {
     this.salvamentos += 1;

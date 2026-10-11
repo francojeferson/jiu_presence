@@ -137,8 +137,34 @@ async function executarInicializacao(): Promise<void> {
   }
 }
 
-/** Apenas para teste: descarta o container memoizado. */
+/** Descarta o container memoizado. Usado pela saída da conta e pelos testes. */
 export function redefinirContainer(): void {
   instancia = null;
   inicializacao = null;
+}
+
+/**
+ * Sai da conta e tira os dados do aluno do aparelho.
+ *
+ * O cache guarda nome e data de nascimento — inclusive de menores — e precisa
+ * sair junto com a sessão: sem isto, trocar ou emprestar o celular leva a base
+ * inteira junto, e a LGPD é um dos motivos de o produto existir.
+ *
+ * A OUTBOX não é tocada, nem aqui nem em lugar nenhum: ela é a única cópia de
+ * uma intenção do professor. Quem chama avisa antes quando ainda há algo nela.
+ */
+export async function sair(): Promise<void> {
+  const c = container();
+
+  // O supabase-js apaga a sessão local mesmo quando a chamada ao servidor
+  // falha, então sair offline continua funcionando. O erro da rede não
+  // interessa: o objetivo aqui é o aparelho, não o servidor.
+  await c.supabase.auth.signOut();
+
+  // Sem isto, os ouvintes de online/offline do monitor antigo sobrevivem ao
+  // descarte do container.
+  c.conectividade.parar();
+
+  await bancoLocal().cache.clear();
+  redefinirContainer();
 }

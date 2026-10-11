@@ -67,7 +67,9 @@ describe('CasosDeUsoDeAluno', () => {
       });
 
       expect(aluno.escala).toBe('infantil');
-      expect(aluno.idadeEm(DataCivil.deIso('2026-10-05'))).toBe(8);
+      expect(
+        DataCivil.idadeEm(aluno.dataNascimento, DataCivil.deIso('2026-10-05')),
+      ).toBe(8);
     });
 
     it('a idade prevalece sobre a escala informada', async () => {

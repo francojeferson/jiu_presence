@@ -95,11 +95,4 @@ export class DataCivil {
   toString(): string {
     return this.iso;
   }
-
-  /** Formato brasileiro, para exibição e relatórios (RF-14 de relatórios). */
-  get brasileiro(): string {
-    const mm = String(this.mes).padStart(2, '0');
-    const dd = String(this.dia).padStart(2, '0');
-    return `${dd}/${mm}/${this.ano}`;
-  }
 }

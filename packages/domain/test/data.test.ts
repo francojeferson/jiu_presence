@@ -42,10 +42,6 @@ describe('DataCivil', () => {
     expect(DataCivil.deIso('2026-10-10').diaDaSemana).toBe(6); // sábado
   });
 
-  it('formata em padrão brasileiro', () => {
-    expect(DataCivil.deIso('2026-01-09').brasileiro).toBe('09/01/2026');
-  });
-
   it('compara por ordem cronológica', () => {
     const antes = DataCivil.deIso('2026-10-04');
     const depois = DataCivil.deIso('2026-10-05');

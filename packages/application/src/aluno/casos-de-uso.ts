@@ -167,6 +167,19 @@ export class CasosDeUsoDeTurma {
     return turmas.sort((a, b) => a.horario.localeCompare(b.horario));
   }
 
+  /**
+   * Inclui as desativadas.
+   *
+   * A tela de administração precisa delas: sem aparecer na lista, uma turma
+   * desativada fica invisível e `reativar` vira porta sem maçaneta — o
+   * professor teria que recriar a turma, e a nova não tem o histórico de
+   * chamadas da antiga.
+   */
+  async listarTodas(): Promise<Turma[]> {
+    const turmas = await this.dep.turmas.listar();
+    return turmas.sort((a, b) => a.horario.localeCompare(b.horario));
+  }
+
   /** A turma que tem aula agora, para pré-seleção na chamada (RF-01). */
   async doHorarioAtual(): Promise<Turma | null> {
     const hoje = this.dep.relogio.hoje();
@@ -191,6 +204,13 @@ export class CasosDeUsoDeTurma {
     const turma = await this.dep.turmas.porId(turmaId);
     if (turma === null) throw new InvarianteViolada('Turma não encontrada.');
     turma.desativar();
+    await this.dep.turmas.salvar(turma);
+  }
+
+  async reativar(turmaId: Id): Promise<void> {
+    const turma = await this.dep.turmas.porId(turmaId);
+    if (turma === null) throw new InvarianteViolada('Turma não encontrada.');
+    turma.reativar();
     await this.dep.turmas.salvar(turma);
   }
 

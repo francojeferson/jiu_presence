@@ -117,7 +117,8 @@ export class Chamada {
       agora?: Date;
     } = {},
   ): void {
-    this.garantirEditavel();
+    const agora = opcoes.agora ?? new Date();
+    this.garantirEditavel(agora);
     if (this.temPresencaDe(alunoId)) return;
 
     const origem = opcoes.origem ?? 'manual';
@@ -134,7 +135,6 @@ export class Chamada {
       );
     }
 
-    const agora = opcoes.agora ?? new Date();
     this.estado = {
       ...this.estado,
       presencas: [
@@ -151,8 +151,8 @@ export class Chamada {
     };
   }
 
-  desmarcarPresenca(alunoId: Id): void {
-    this.garantirEditavel();
+  desmarcarPresenca(alunoId: Id, agora: Date = new Date()): void {
+    this.garantirEditavel(agora);
     this.estado = {
       ...this.estado,
       presencas: this.estado.presencas.filter((p) => p.alunoId !== alunoId),
@@ -162,7 +162,7 @@ export class Chamada {
   /** RF-18: um toque alterna o estado. Retorna o estado resultante. */
   alternarPresenca(alunoId: Id, agora: Date = new Date()): boolean {
     if (this.temPresencaDe(alunoId)) {
-      this.desmarcarPresenca(alunoId);
+      this.desmarcarPresenca(alunoId, agora);
       return false;
     }
     this.marcarPresenca(alunoId, { agora });
@@ -188,16 +188,13 @@ export class Chamada {
     return decorrido <= Chamada.CARENCIA_DE_EDICAO_MS;
   }
 
-  reabrir(agora: Date = new Date()): void {
-    if (!this.editavelEm(agora)) {
-      throw new InvarianteViolada(
-        'O prazo para editar esta chamada já passou. Ela é somente leitura.',
-      );
-    }
-    this.estado = { ...this.estado, confirmada: false };
-  }
-
-  private garantirEditavel(agora: Date = new Date()): void {
+  /**
+   * Recebe `agora` de quem chama, sempre. Ler o relógio aqui dentro faria a
+   * carência ser medida contra a hora real mesmo quando o chamador injetou
+   * outra — a regra deixaria de ser determinística, que é justamente o motivo
+   * de o domínio não ler `Date.now()` em ponto de decisão.
+   */
+  private garantirEditavel(agora: Date): void {
     if (!this.editavelEm(agora)) {
       throw new InvarianteViolada(
         'O prazo para editar esta chamada já passou. Ela é somente leitura.',

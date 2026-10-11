@@ -16,7 +16,6 @@ import { mensagemDe } from '@/lib/erros';
 const ROTULOS: Record<string, string> = {
   criar_aluno: 'Cadastro de aluno',
   atualizar_aluno: 'Edição de aluno',
-  inativar_aluno: 'Inativação de aluno',
   excluir_aluno: 'Exclusão de aluno',
   criar_turma: 'Cadastro de turma',
   atualizar_turma: 'Edição de turma',

@@ -21,6 +21,7 @@
  */
 
 import type { TipoDeOperacao } from '../local/db.js';
+import { ESPERAS_MS } from '../local/outbox.js';
 
 export type Classificacao = 'sucesso' | 'transitorio' | 'permanente';
 
@@ -53,9 +54,20 @@ const CONSTRAINTS_DE_CONFLITO_REAL = new Set([
 
 const STATUS_TRANSITORIOS = new Set([401, 408, 429, 500, 502, 503, 504]);
 
+/**
+ * A partir desta tentativa, uma violação de chave estrangeira deixa de ser
+ * tratada como espera e vira falha permanente.
+ *
+ * É o número de esperas da escala: depois delas a espera já chegou ao teto, e
+ * continuar aguardando significa que a dependência não vem mais — tipicamente
+ * porque ela própria foi recusada em definitivo.
+ */
+export const TENTATIVAS_ATE_DEPENDENCIA_DESISTIR = ESPERAS_MS.length;
+
 export function classificar(
   resposta: RespostaDoServidor,
   tipo: TipoDeOperacao,
+  tentativas = 0,
 ): Classificacao {
   const { status, codigo, constraint } = resposta;
 
@@ -66,8 +78,17 @@ export function classificar(
   // classificaria como permanente um item que só precisa esperar o anterior
   // subir. O resultado seria a presença saindo da fila ativa e o professor
   // tendo que resolver na mão algo que se resolveria sozinho.
+  //
+  // Mas a espera não pode ser eterna. Quando a dependência foi recusada em
+  // definitivo, ela nunca sobe, e como `prontos()` corta a fila no primeiro
+  // item ainda em espera, NADA atrás deste volta a ser enviado. Esgotada a
+  // escala de esperas, o item sai da fila ativa e vai para Pendências, onde o
+  // professor o vê e decide — nunca descartado em silêncio.
   if (codigo === '23503') {
-    return tipo === 'excluir_aluno' || tipo === 'excluir_turma'
+    if (tipo === 'excluir_aluno' || tipo === 'excluir_turma') {
+      return 'permanente';
+    }
+    return tentativas >= TENTATIVAS_ATE_DEPENDENCIA_DESISTIR
       ? 'permanente'
       : 'transitorio';
   }
@@ -119,6 +140,10 @@ export function mensagemParaOProfessor(
   if (resposta.codigo === '23503' && tipo === 'excluir_turma') {
     return 'Esta turma possui histórico no servidor e não pode ser excluída. Desative-a.';
   }
+  if (resposta.codigo === '23503') {
+    return 'Este registro depende de outro que o servidor não aceitou. ' +
+      'Resolva a pendência anterior desta lista e tente de novo.';
+  }
   if (resposta.constraint === 'chamada_unica_por_turma_e_data') {
     return 'Já existe uma chamada registrada para esta turma neste dia.';
   }
@@ -136,7 +161,6 @@ function rotuloDe(tipo: TipoDeOperacao): string {
   const rotulos: Record<TipoDeOperacao, string> = {
     criar_aluno: 'cadastro de aluno',
     atualizar_aluno: 'edição de aluno',
-    inativar_aluno: 'inativação de aluno',
     excluir_aluno: 'exclusão de aluno',
     criar_turma: 'cadastro de turma',
     atualizar_turma: 'edição de turma',

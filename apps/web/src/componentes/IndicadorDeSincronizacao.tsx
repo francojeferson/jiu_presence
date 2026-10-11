@@ -14,6 +14,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { EstadoDeSincronizacao } from '@jiupresence/domain';
+import { LIMITE_DE_PENDENCIAS_PARA_ALERTA } from '@jiupresence/infrastructure';
 import { container } from '@/composicao/container';
 
 export function IndicadorDeSincronizacao(): React.ReactElement | null {
@@ -47,10 +48,15 @@ export function IndicadorDeSincronizacao(): React.ReactElement | null {
   }
 
   if (pendentes > 0) {
+    // RF-14: acima do limite, a fila parou de ser "normal offline" e virou
+    // algo a resolver. É também o único sinal de que a sincronização pode
+    // estar travada — sem ele, uma semana presa parece cinco minutos.
+    const acumulada = pendentes > LIMITE_DE_PENDENCIAS_PARA_ALERTA;
     return (
-      <div className="indicador">
+      <div className={acumulada ? 'indicador atencao' : 'indicador'}>
         {pendentes === 1 ? '1 registro aguardando envio' : `${pendentes} registros aguardando envio`}
         {!online && ' · sem conexão'}
+        {acumulada && online && ' · conecte para enviar'}
       </div>
     );
   }

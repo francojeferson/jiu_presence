@@ -31,6 +31,10 @@ export default function PaginaDeChamada(): React.ReactElement {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [confirmada, setConfirmada] = useState(false);
+  // Houve marcação depois da última abertura ou confirmação? Só existe em
+  // memória até confirmar, então trocar de turma agora apagaria tudo.
+  const [alterado, setAlterado] = useState(false);
+  const [trocaPendente, setTrocaPendente] = useState<string | null>(null);
 
   // Pré-seleção da turma do horário atual (RF-01): um toque a menos no
   // momento de maior pressa.
@@ -54,6 +58,8 @@ export default function PaginaDeChamada(): React.ReactElement {
   const abrir = useCallback(async (id: string) => {
     setErro(null);
     setConfirmada(false);
+    setAlterado(false);
+    setTrocaPendente(null);
     try {
       const emAndamento = await container().chamada.abrir(id as never);
       setChamada(emAndamento);
@@ -74,6 +80,7 @@ export default function PaginaDeChamada(): React.ReactElement {
       // A confirmação anterior deixou de descrever a lista na tela: a versão
       // editada só existe em memória até uma nova confirmação (RF-14).
       setConfirmada(false);
+      setAlterado(true);
     } catch (e) {
       setErro(mensagemDe(e));
     }
@@ -86,6 +93,7 @@ export default function PaginaDeChamada(): React.ReactElement {
     try {
       await container().chamada.confirmar(chamada);
       setConfirmada(true);
+      setAlterado(false);
     } catch (e) {
       setErro(mensagemDe(e));
     } finally {
@@ -133,8 +141,17 @@ export default function PaginaDeChamada(): React.ReactElement {
         <span>Turma</span>
         <select
           value={turmaId ?? ''}
-          onChange={(e) => setTurmaId(e.target.value)}
-          disabled={salvando}
+          onChange={(e) => {
+            // Um toque errado aqui apagava a marcação da turma inteira, sem
+            // aviso e sem desfazer. O `select` é controlado, então não chamar
+            // `setTurmaId` já devolve a seleção anterior à tela.
+            if (alterado) {
+              setTrocaPendente(e.target.value);
+              return;
+            }
+            setTurmaId(e.target.value);
+          }}
+          disabled={salvando || trocaPendente !== null}
         >
           {turmas.map((t) => (
             <option key={t.id} value={t.id}>
@@ -143,6 +160,29 @@ export default function PaginaDeChamada(): React.ReactElement {
           ))}
         </select>
       </label>
+
+      {trocaPendente !== null && (
+        <div className="cartao" style={{ borderColor: 'var(--alerta)' }}>
+          <p className="erro-texto" style={{ marginTop: 0 }}>
+            Você marcou presenças e ainda não confirmou. Trocar de turma
+            descarta essas marcações.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setTurmaId(trocaPendente);
+                setTrocaPendente(null);
+              }}
+            >
+              Sim, trocar
+            </button>
+            <button type="button" onClick={() => setTrocaPendente(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {chamada?.jaExistia === true && !confirmada && (
         <p className="aviso">

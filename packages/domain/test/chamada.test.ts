@@ -143,14 +143,29 @@ describe('Chamada', () => {
       chamada.confirmar();
       const doisDiasDepois = new Date(agora.getTime() + 48 * 60 * 60 * 1000);
       expect(chamada.editavelEm(doisDiasDepois)).toBe(false);
-      expect(() => chamada.reabrir(doisDiasDepois)).toThrow(InvarianteViolada);
     });
 
-    it('reabre dentro da carência', () => {
-      const chamada = chamadaAberta();
+    it('a carência é medida contra o relógio recebido, não contra o real', () => {
+      // Uma chamada de dois dias atrás, confirmada: ler o relógio dentro de
+      // `garantirEditavel` a daria como editável agora e como somente leitura
+      // no instante em que ela de fato ocorreu — o oposto da regra.
+      const aula = new Date('2026-10-04T19:00:00Z');
+      const chamada = Chamada.abrir({ turmaId: TURMA, agora: aula });
       chamada.confirmar();
-      chamada.reabrir();
-      expect(chamada.confirmada).toBe(false);
+
+      const dentro = new Date(aula.getTime() + 60 * 60 * 1000);
+      const fora = new Date(aula.getTime() + 48 * 60 * 60 * 1000);
+
+      expect(() => chamada.marcarPresenca(ALUNO_A, { agora: dentro })).not.toThrow();
+      expect(() => chamada.marcarPresenca(ALUNO_B, { agora: fora })).toThrow(
+        InvarianteViolada,
+      );
+      expect(() => chamada.desmarcarPresenca(ALUNO_A, fora)).toThrow(
+        InvarianteViolada,
+      );
+      expect(() => chamada.alternarPresenca(ALUNO_A, fora)).toThrow(
+        InvarianteViolada,
+      );
     });
   });
 

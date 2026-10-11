@@ -29,7 +29,7 @@ import {
 } from '@jiupresence/domain';
 import type { LinhaAluno, LinhaChamada, LinhaMatricula, LinhaPresenca, LinhaTurma } from '@jiupresence/contracts';
 
-import { bancoLocal, type BancoLocal } from './db.js';
+import { bancoLocal, VERSAO_DO_SCHEMA_LOCAL, type BancoLocal } from './db.js';
 import { Outbox } from './outbox.js';
 import { garantirEspacoParaEscrita } from './cota.js';
 import {
@@ -69,7 +69,10 @@ async function escrever<T>(
     chave: CHAVE[colecao],
     valor,
     atualizadoEm: new Date().toISOString(),
-    versaoSchema: 1,
+    // A constante, nunca o literal: carimbar 1 fixo faria toda escrita local
+    // rebaixar a entrada recém-reconstruída, e o cache seria dado como
+    // defasado em cada abertura depois de um incremento de versão (RF-17).
+    versaoSchema: VERSAO_DO_SCHEMA_LOCAL,
   });
 }
 
@@ -219,12 +222,6 @@ export class RepositoriosLocais {
 
   // ---------------------------------------------------------- matrículas
 
-  async matriculasDaTurma(turmaId: Id): Promise<Matricula[]> {
-    return (await ler<LinhaMatricula>(this.db, 'matriculas'))
-      .filter((m) => m.turma_id === turmaId)
-      .map(matriculaDaLinha);
-  }
-
   async doAluno(alunoId: Id): Promise<Matricula[]> {
     return (await ler<LinhaMatricula>(this.db, 'matriculas'))
       .filter((m) => m.aluno_id === alunoId)
@@ -276,16 +273,6 @@ export class RepositoriosLocais {
       (p) => p.chamada_id === linha.id,
     );
     return chamadaDaLinha(linha, presencas);
-  }
-
-  async listarRecentes(limite: number): Promise<Chamada[]> {
-    const linhas = (await ler<LinhaChamada>(this.db, 'chamadas'))
-      .sort((a, b) => b.data.localeCompare(a.data))
-      .slice(0, limite);
-    const todas = await ler<LinhaPresenca>(this.db, 'presencas');
-    return linhas.map((l) =>
-      chamadaDaLinha(l, todas.filter((p) => p.chamada_id === l.id)),
-    );
   }
 
   /**
@@ -391,14 +378,12 @@ export function portasLocais(repos: RepositoriosLocais): {
       contarChamadas: (id) => repos.contarChamadas(id),
     },
     matriculas: {
-      daTurma: (id) => repos.matriculasDaTurma(id),
       doAluno: (id) => repos.doAluno(id),
       salvar: (m) => repos.salvarMatricula(m),
     },
     chamadas: {
       porId: (id) => repos.chamadaPorId(id),
       porTurmaEData: (t, d) => repos.porTurmaEData(t, d),
-      listarRecentes: (n) => repos.listarRecentes(n),
       salvar: (c) => repos.salvarChamada(c),
     },
   };

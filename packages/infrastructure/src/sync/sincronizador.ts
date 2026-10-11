@@ -131,7 +131,9 @@ export class SincronizadorOutbox implements PortaSincronizador {
           this.conectividade.registrarResultado(resposta.status > 0);
         }
 
-        const classe = classificar(resposta, item.tipo);
+        // `tentativas` entra na decisão porque uma dependência que nunca chega
+        // precisa parar de ser esperada, em vez de travar a fila inteira.
+        const classe = classificar(resposta, item.tipo, item.tentativas);
 
         if (classe === 'sucesso') {
           await this.outbox.concluir(item.id);

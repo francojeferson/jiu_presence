@@ -85,24 +85,6 @@ export class Faixa {
     return idade >= IDADE_CORTE_ESCALA ? 'adulta' : 'infantil';
   }
 
-  get indice(): number {
-    return faixasDa(this.escala).indexOf(this.nome);
-  }
-
-  get ehMaxima(): boolean {
-    return this.indice === faixasDa(this.escala).length - 1;
-  }
-
-  /**
-   * Próxima faixa da mesma escala, ou `null` se já está na última.
-   * Usado pela feature de graduação para propor o destino.
-   */
-  proxima(): Faixa | null {
-    if (this.ehMaxima) return null;
-    const proximoNome = faixasDa(this.escala)[this.indice + 1]!;
-    return new Faixa(this.escala, proximoNome);
-  }
-
   igual(outra: Faixa): boolean {
     return this.escala === outra.escala && this.nome === outra.nome;
   }

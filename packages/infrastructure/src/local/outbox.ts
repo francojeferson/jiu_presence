@@ -183,21 +183,6 @@ export class Outbox {
   }
 
   /**
-   * Há algum item em voo?
-   *
-   * EC-08: bloqueio contra processamento concorrente entre a sincronização
-   * automática e a manual. A chave de idempotência é a segunda linha de
-   * defesa, não a primeira.
-   */
-  async temItemEmVoo(): Promise<boolean> {
-    const emVoo = await this.db.outbox
-      .where('estado')
-      .equals('enviando' satisfies EstadoDoItem)
-      .count();
-    return emVoo > 0;
-  }
-
-  /**
    * Destrava itens que ficaram em 'enviando' por encerramento abrupto do app.
    * Chamado na inicialização.
    */

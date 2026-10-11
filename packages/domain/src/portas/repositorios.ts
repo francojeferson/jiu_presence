@@ -37,7 +37,6 @@ export interface RepositorioDeTurmas {
 }
 
 export interface RepositorioDeMatriculas {
-  daTurma(turmaId: Id): Promise<Matricula[]>;
   doAluno(alunoId: Id): Promise<Matricula[]>;
   salvar(matricula: Matricula): Promise<void>;
 }
@@ -46,7 +45,6 @@ export interface RepositorioDeChamadas {
   porId(id: Id): Promise<Chamada | null>;
   /** RF-21: é o que permite detectar a chamada já existente antes de criar outra. */
   porTurmaEData(turmaId: Id, data: DataCivil): Promise<Chamada | null>;
-  listarRecentes(limite: number): Promise<Chamada[]>;
   salvar(chamada: Chamada): Promise<void>;
 }
 

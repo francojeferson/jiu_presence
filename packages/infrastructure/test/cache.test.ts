@@ -75,14 +75,15 @@ function clienteFalso(
               ? alunos
               : [];
 
-      if (tabela === 'presenca') {
-        if (url.searchParams.has('chamada_id')) {
-          dados = presencas.filter((item) => item.chamada_id === chamada.id);
-        }
-        const inicio = Number(url.searchParams.get('offset') ?? 0);
-        const limite = Math.min(Number(url.searchParams.get('limit') ?? 1_000), 1_000);
-        dados = dados.slice(inicio, inicio + limite);
+      if (tabela === 'presenca' && url.searchParams.has('chamada_id')) {
+        dados = presencas.filter((item) => item.chamada_id === chamada.id);
       }
+
+      // O teto vale para QUALQUER tabela, como no PostgREST de verdade: sem
+      // pedir faixa, ele devolve `max_rows` linhas e nenhum aviso.
+      const inicio = Number(url.searchParams.get('offset') ?? 0);
+      const limite = Math.min(Number(url.searchParams.get('limit') ?? 1_000), 1_000);
+      dados = dados.slice(inicio, inicio + limite);
 
       return new Response(JSON.stringify(dados), {
         status: 200,
@@ -137,6 +138,30 @@ describe('SincronizadorDeCache', () => {
     expect(paginas.map((url) => url.searchParams.get('order'))).toEqual([
       'id.asc',
       'id.asc',
+    ]);
+  });
+
+  it('pagina os alunos em vez de aceitar a lista cortada pelo servidor', async () => {
+    // O PostgREST corta em `max_rows` sem erro nenhum. Aceitar a primeira
+    // página faria o aluno de número 1001 sumir da chamada em silêncio.
+    const muitos = Array.from({ length: 1_001 }, (_, i) => ({
+      ...alunoLocal,
+      id: id(i + 10_000),
+      nome: `Aluno ${i}`,
+    }));
+    const requisicoes: URL[] = [];
+    const sincronizador = new SincronizadorDeCache(
+      clienteFalso(requisicoes, undefined, muitos),
+      db,
+    );
+
+    await sincronizador.puxar();
+
+    expect((await db.cache.get('alunos'))?.valor).toHaveLength(1_001);
+    const paginas = requisicoes.filter((url) => url.pathname.endsWith('/aluno'));
+    expect(paginas.map((url) => url.searchParams.get('offset'))).toEqual([
+      '0',
+      '1000',
     ]);
   });
 

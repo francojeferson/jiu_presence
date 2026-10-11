@@ -10,6 +10,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { log } from '@jiupresence/infrastructure';
 import { mensagemDe } from '@/lib/erros';
 
 export default function Erro({
@@ -20,8 +21,9 @@ export default function Erro({
   reset: () => void;
 }): React.ReactElement {
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error(JSON.stringify({ evento: 'erro-nao-tratado', digest: error.digest }));
+    // Pelo `log`, e não por `console.error` à mão: é ele que garante que nome
+    // de aluno, data de nascimento e faixa não vazem para o console.
+    log.erro('erro-nao-tratado', { digest: error.digest ?? null });
   }, [error]);
 
   return (

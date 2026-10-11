@@ -17,7 +17,6 @@ import Dexie, { type EntityTable } from 'dexie';
 export type TipoDeOperacao =
   | 'criar_aluno'
   | 'atualizar_aluno'
-  | 'inativar_aluno'
   | 'excluir_aluno'
   | 'criar_turma'
   | 'atualizar_turma'

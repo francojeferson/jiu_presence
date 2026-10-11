@@ -87,9 +87,3 @@ export function comoId(valor: string): Id {
   }
   return valor;
 }
-
-/** Extrai o instante de criação embutido em um UUID v7. */
-export function instanteDoId(id: Id): number {
-  const hex = id.replace(/-/g, '').slice(0, 12);
-  return Number.parseInt(hex, 16);
-}

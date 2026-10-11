@@ -7,7 +7,6 @@ import {
   ValorInvalido,
 } from '../src/erros.js';
 
-const HOJE = DataCivil.deIso('2026-10-04');
 
 function alunoAdulto(nome = 'Carlos Gracie') {
   return Aluno.criar({ nome, escala: 'adulta', faixa: 'azul' });
@@ -62,81 +61,6 @@ describe('Aluno', () => {
         faixa: 'branca',
       });
       expect(aluno.dataNascimento).toBeNull();
-      expect(aluno.idadeEm(HOJE)).toBeNull();
-    });
-  });
-
-  describe('idade e escala', () => {
-    it('calcula a idade a partir da data de nascimento', () => {
-      const aluno = Aluno.criar({
-        nome: 'Criança',
-        escala: 'infantil',
-        faixa: 'cinza',
-        dataNascimento: DataCivil.deIso('2016-01-01'),
-      });
-      expect(aluno.idadeEm(HOJE)).toBe(10);
-    });
-
-    it('sinaliza quando a escala registrada diverge da idade', () => {
-      // EC-01: a criança completou 16 anos mas segue na escala infantil.
-      // O sistema SINALIZA; converter é decisão do professor.
-      const aluno = Aluno.criar({
-        nome: 'Cruzou o corte',
-        escala: 'infantil',
-        faixa: 'verde',
-        dataNascimento: DataCivil.deIso('2010-01-01'),
-      });
-      expect(aluno.idadeEm(HOJE)).toBe(16);
-      expect(aluno.escalaDivergeDaIdade(HOJE)).toBe(true);
-      // E não converteu sozinho:
-      expect(aluno.escala).toBe('infantil');
-    });
-
-    it('não sinaliza divergência quando a escala confere', () => {
-      const aluno = Aluno.criar({
-        nome: 'Adulto',
-        escala: 'adulta',
-        faixa: 'azul',
-        dataNascimento: DataCivil.deIso('1995-01-01'),
-      });
-      expect(aluno.escalaDivergeDaIdade(HOJE)).toBe(false);
-    });
-
-    it('não sinaliza divergência sem data de nascimento', () => {
-      expect(alunoAdulto().escalaDivergeDaIdade(HOJE)).toBe(false);
-    });
-  });
-
-  describe('edição', () => {
-    it('renomeia', () => {
-      const aluno = alunoAdulto();
-      aluno.renomear('Novo Nome');
-      expect(aluno.nome).toBe('Novo Nome');
-    });
-
-    it('recusa renomear para vazio', () => {
-      expect(() => alunoAdulto().renomear('  ')).toThrow(CampoObrigatorio);
-    });
-
-    it('atualiza o carimbo de modificação ao editar', () => {
-      const aluno = alunoAdulto();
-      const antes = aluno.dados().atualizadoEm;
-      aluno.renomear('Outro', new Date(Date.parse(antes) + 60_000));
-      expect(aluno.dados().atualizadoEm).not.toBe(antes);
-    });
-
-    it('altera a faixa validando contra a escala', () => {
-      const aluno = alunoAdulto();
-      aluno.alterarFaixa('adulta', 'roxa');
-      expect(aluno.faixa.nome).toBe('roxa');
-      expect(() => aluno.alterarFaixa('adulta', 'verde')).toThrow(ValorInvalido);
-    });
-
-    it('registrar graduação atualiza faixa e marco de contagem', () => {
-      const aluno = alunoAdulto();
-      aluno.registrarGraduacao('adulta', 'roxa', HOJE);
-      expect(aluno.faixa.nome).toBe('roxa');
-      expect(aluno.dataUltimaGraduacao?.iso).toBe(HOJE.iso);
     });
   });
 
