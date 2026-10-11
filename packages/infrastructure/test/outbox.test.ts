@@ -1,7 +1,13 @@
 import './setup.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BancoLocal, definirBancoLocal } from '../src/local/db.js';
-import { Outbox, esperaParaTentativa, ESPERA_MAXIMA_MS } from '../src/local/outbox.js';
+import {
+  Outbox,
+  SaidaBloqueadaPorFila,
+  esperaParaTentativa,
+  limparCacheComFilaVazia,
+  ESPERA_MAXIMA_MS,
+} from '../src/local/outbox.js';
 
 let db: BancoLocal;
 let outbox: Outbox;
@@ -233,6 +239,62 @@ describe('Outbox', () => {
       await outbox.marcarFalhaPermanente(itemA, 'erro');
 
       expect(await outbox.pendentes()).toBe(1);
+    });
+  });
+
+  describe('limpeza do aparelho na saída da conta', () => {
+    async function guardarCache(): Promise<void> {
+      await db.cache.put({
+        chave: 'alunos',
+        valor: [{ nome: 'Ana Silva', data_nascimento: '1995-01-01' }],
+        atualizadoEm: '2026-10-04T10:00:00Z',
+        versaoSchema: 1,
+      });
+    }
+
+    it('com a fila vazia, apaga o cache', async () => {
+      await guardarCache();
+
+      await limparCacheComFilaVazia(db);
+
+      expect(await db.cache.count()).toBe(0);
+    });
+
+    it('com registro na fila, recusa e NÃO apaga nada', async () => {
+      // A fila guarda nome e data de nascimento dentro do payload. Sair com
+      // ela cheia deixaria o registro no aparelho sem sessão para
+      // sincronizar, e sem ninguém sabendo que estava lá.
+      await guardarCache();
+      await outbox.enfileirar(
+        id(),
+        'criar_aluno',
+        { nome: 'Ana Silva' },
+        '2026-10-04T10:00:00Z',
+      );
+
+      await expect(limparCacheComFilaVazia(db)).rejects.toBeInstanceOf(
+        SaidaBloqueadaPorFila,
+      );
+      expect(await db.cache.count()).toBe(1);
+      expect(await db.outbox.count()).toBe(1);
+    });
+
+    it('a falha permanente também segura a saída', async () => {
+      // Ela continua sendo dado do professor por enviar, só que esperando
+      // decisão dele em vez de rede.
+      await guardarCache();
+      const item = await outbox.enfileirar(
+        id(),
+        'criar_aluno',
+        { nome: 'Ana Silva' },
+        '2026-10-04T10:00:00Z',
+      );
+      await outbox.marcarFalhaPermanente(item, 'recusado');
+
+      await expect(limparCacheComFilaVazia(db)).rejects.toBeInstanceOf(
+        SaidaBloqueadaPorFila,
+      );
+      expect(await db.cache.count()).toBe(1);
     });
   });
 

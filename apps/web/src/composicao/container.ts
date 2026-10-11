@@ -29,6 +29,7 @@ import {
   bancoLocal,
   criarCliente,
   lerConfiguracao,
+  limparCacheComFilaVazia,
   portasLocais,
   solicitarArmazenamentoPersistente,
   type SupabaseClient,
@@ -165,9 +166,14 @@ export async function sair(): Promise<void> {
   c.conectividade.parar();
 
   // 2. Apagar o dado do aparelho antes de mexer na sessão. Se esta etapa
-  //    falhar, o professor continua logado e pode tentar de novo; na ordem
-  //    inversa ele ficaria deslogado com os dados dos alunos no aparelho.
-  await bancoLocal().cache.clear();
+  //    falhar — inclusive por haver registro na fila — o professor continua
+  //    logado e pode tentar de novo; na ordem inversa ele ficaria deslogado
+  //    com os dados dos alunos no aparelho.
+  //
+  //    A recusa com fila cheia mora AQUI, e não na tela: é esta a fronteira
+  //    em que o dado deixa (ou não) o aparelho, e a conferência da tela não
+  //    é atômica com a limpeza.
+  await limparCacheComFilaVazia(bancoLocal());
 
   // 3. A sessão. O escopo padrão fala com o servidor para revogar o token —
   //    bom quando há rede. Offline ele devolve erro e NÃO apaga a sessão

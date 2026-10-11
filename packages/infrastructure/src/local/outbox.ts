@@ -54,6 +54,42 @@ function filaMudou(mudanca: MudancaNaFila): void {
   for (const ouvinte of ouvintesDaFila) ouvinte(mudanca);
 }
 
+export class SaidaBloqueadaPorFila extends Error {
+  readonly codigo = 'SAIDA_BLOQUEADA_POR_FILA';
+  constructor(readonly naFila: number) {
+    super(
+      naFila === 1
+        ? 'Ainda há 1 registro por enviar. Conecte e aguarde o envio antes de sair.'
+        : `Ainda há ${naFila} registros por enviar. Conecte e aguarde o envio antes de sair.`,
+    );
+    this.name = 'SaidaBloqueadaPorFila';
+  }
+}
+
+/**
+ * Apaga o cache local, e SOMENTE com a fila vazia.
+ *
+ * O cache guarda nome e data de nascimento de aluno e precisa sair do
+ * aparelho junto com a sessão (LGPD). A fila guarda os mesmos dados dentro
+ * dos payloads, e por isso a saída não pode acontecer com ela cheia: o
+ * registro ficaria no aparelho sem dono, sem sessão para sincronizar e sem
+ * ninguém sabendo que estava lá.
+ *
+ * As duas coisas na MESMA transação porque conferir e apagar em passos
+ * separados abre uma janela real: com duas abas, uma pode confirmar a chamada
+ * exatamente entre a conferência da outra e a limpeza.
+ */
+export async function limparCacheComFilaVazia(
+  db = bancoLocal(),
+): Promise<void> {
+  await db.transaction('rw', db.cache, db.outbox, async () => {
+    const naFila = await db.outbox.count();
+    // Lançar aborta a transação: o cache continua intacto.
+    if (naFila > 0) throw new SaidaBloqueadaPorFila(naFila);
+    await db.cache.clear();
+  });
+}
+
 export class Outbox {
   constructor(private readonly db = bancoLocal()) {}
 

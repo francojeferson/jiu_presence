@@ -10,12 +10,18 @@
  */
 
 import { ErroDeDominio } from '@jiupresence/domain';
-import { ConfiguracaoAusente, ErroDeCotaEsgotada } from '@jiupresence/infrastructure';
+import {
+  ConfiguracaoAusente,
+  ErroDeCotaEsgotada,
+  SaidaBloqueadaPorFila,
+} from '@jiupresence/infrastructure';
 import { DadosEmFormatoInesperado } from '@jiupresence/contracts';
 
 export function mensagemDe(erro: unknown): string {
   if (erro instanceof ErroDeDominio) return erro.message;
   if (erro instanceof ErroDeCotaEsgotada) return erro.message;
+  // Já nasce em português e explica o que fazer: conectar e aguardar o envio.
+  if (erro instanceof SaidaBloqueadaPorFila) return erro.message;
 
   if (erro instanceof ConfiguracaoAusente) {
     return (

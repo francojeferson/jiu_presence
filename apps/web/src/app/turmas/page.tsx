@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NOMES_DOS_DIAS, type Turma } from '@jiupresence/domain';
+import { SaidaBloqueadaPorFila } from '@jiupresence/infrastructure';
 import { container, sair } from '@/composicao/container';
 import { alternativaDe, mensagemDe } from '@/lib/erros';
 
@@ -70,17 +71,14 @@ export default function PaginaDeTurmas(): React.ReactElement {
     setErro(null);
     setSaindo(true);
     try {
-      // A fila sobrevive à saída, mas fica órfã: a próxima sessão pode ser de
-      // outra pessoa, e ninguém mais saberia que aquilo estava por enviar.
+      // Só ANTECIPA a recusa, para não mostrar um aviso de apagamento que
+      // não vai acontecer. A guarda de verdade é a de `sair()`, que confere
+      // e limpa na mesma transação — aqui a fila pode encher entre a
+      // conferência e o toque em "Sim, sair".
       const { pendentes, falhasPermanentes } =
         await container().sincronizador.estado();
-      const naFila = pendentes + falhasPermanentes;
-      if (naFila > 0) {
-        setErro(
-          naFila === 1
-            ? 'Ainda há 1 registro por enviar. Conecte e aguarde o envio antes de sair.'
-            : `Ainda há ${naFila} registros por enviar. Conecte e aguarde o envio antes de sair.`,
-        );
+      if (pendentes + falhasPermanentes > 0) {
+        setErro(mensagemDe(new SaidaBloqueadaPorFila(pendentes + falhasPermanentes)));
         return;
       }
 
