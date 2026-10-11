@@ -36,7 +36,7 @@ está escrito aqui pode ter envelhecido junto.
 ```
 main == origin/main, árvore limpa
 pnpm typecheck    9 tarefas, todas verdes
-pnpm test         219 testes — domain 99, application 42, infrastructure 78
+pnpm test         241 testes — domain 99, application 42, infrastructure 100
 pnpm build        5 tarefas, 8 rotas
 pnpm audit --prod nenhuma vulnerabilidade
 pnpm arch         0 erros (1 aviso pré-existente: test/setup.ts órfão)
@@ -59,7 +59,7 @@ As duas são independentes. A escolha é do usuário, não do agente.
 
 | Trilha | Primeiro passo | Leitura específica |
 |---|---|---|
-| **Dívida** | **nenhuma dívida de código em aberto.** O que sobrou é o item 4 do registro, cobertura — e dentro dele o teste de higienização do `log.ts`, a promessa de LGPD sustentada hoje só por uma lista de strings | só o registro |
+| **Dívida** | **esgotada.** Nenhuma dívida de código, e as duas lacunas de teste baratas foram fechadas. O que resta no item 4 do registro precisa de ambiente implantado ou de aparelho na mão, não de código | só o registro |
 | **Produto** | biometria — travada em dados e licença, não em código | este arquivo → [`fase0-deteccao-resultado.md`](./fase0-deteccao-resultado.md) → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
 
 > Palavras-chave antigas continuam funcionando e caem aqui:

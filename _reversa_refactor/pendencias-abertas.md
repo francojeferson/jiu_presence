@@ -97,14 +97,24 @@ PDF e notificações.
 
 | Área | Por que não tem | Como ficaria coberta |
 |---|---|---|
-| Cota de armazenamento esgotada | exigiria forjar `navigator.storage.estimate` | stub do `navigator.storage` num teste de unidade de `cota.ts` |
 | Falha parcial entre gravar e enfileirar | a transação do Dexie é a garantia; não há como interrompê-la pela metade | nenhuma forma honesta conhecida |
-| "Nenhum dado pessoal no log" | higienização por lista de campos em `log.ts`, sem teste | teste de unidade passando nome e data de nascimento e exigindo que sumam |
 | RLS no Supabase **hospedado** | o E2E cobre o Supabase local | rodar o mesmo cenário contra o projeto real |
 | Celular físico e volume real | nunca exercitados | — |
 
-As três primeiras são baratas. A de log é a que mais vale: é uma promessa de
-LGPD sustentada hoje só por uma lista de strings.
+**Nenhuma das três restantes é barata, e nenhuma se fecha escrevendo teste.**
+As duas que eram baratas foram fechadas em 2026-10-11 (`cota.test.ts` e
+`log.test.ts`, +22 testes na infraestrutura). O que sobra depende de acesso a
+ambiente ou de aparelho na mão, ou não tem forma honesta conhecida.
+
+> Sobre a de log, que o registro chamava de "a que mais vale": ao escrever o
+> teste descobriu-se que **o `log` tem um único chamador em todo o repositório**
+> — `error.tsx`, que passa apenas `{ digest }`. Nunca houve vazamento para
+> tapar; o teste é apólice contra o próximo chamador, não correção. O número
+> que mudou de verdade é outro: a garantia **não** vem da lista de campos
+> proibidos, e sim do filtro de TIPO, que descarta objetos e listas inteiros —
+> por isso nenhum nome de campo não previsto vaza. As duas propriedades foram
+> conferidas por verificação negativa: desligada a lista, 2 testes falham;
+> desligado o filtro de tipo, falha o que importa.
 
 ---
 
@@ -121,6 +131,11 @@ LGPD sustentada hoje só por uma lista de strings.
 - **O stub de Web Locks em `test/setup.ts` implementa só `ifAvailable`.** É o
   único modo que o código usa; qualquer outro **lança** em vez de fingir que
   funcionou.
+- **O log não enxerga dado pessoal embutido em texto.** O filtro age por nome
+  de campo e por tipo, então `{ mensagem: 'duplicate key ... Ana Silva' }`
+  passa inteiro. Hoje é teórico — o único chamador passa um `digest` — mas é o
+  caminho por onde um erro do Supabase ecoando a linha recusada entraria no
+  log. Está dito no cabeçalho de `log.test.ts`, para quem for logar `error`.
 
 ---
 
