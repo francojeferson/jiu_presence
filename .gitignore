@@ -78,3 +78,8 @@ playwright-report/
 # Fotos de rosto de alunos, incluindo crianças. NUNCA versionar.
 # A pasta tem um .gitignore próprio como segunda linha de defesa.
 .avaliacao/
+# Estado efêmero do CLI do Supabase. Ele escreve DENTRO de supabase/, que é
+# caminho do Flutter legado e é vigiado pelo passo "O legado Flutter permanece
+# intocado" do CI. Sem esta entrada, rodar `supabase start` suja o legado e
+# reprova o pipeline.
+supabase/.temp/
