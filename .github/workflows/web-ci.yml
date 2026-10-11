@@ -3,8 +3,10 @@
 # NÃO toca em daily-explosm-comic.yml, que é uma automação independente e
 # precisa continuar funcionando.
 #
-# Os caminhos do projeto Flutter legado ficam fora dos gatilhos: mudanças
-# lá não existem (é legado intocável) e não devem disparar este pipeline.
+# Os caminhos do projeto Flutter legado ENTRAM nos gatilhos, não para serem
+# construídos, mas para que o passo "O legado Flutter permanece intocado" rode
+# justamente quando alguém mexe neles. Fora do gatilho, a garantia não existia
+# no único caso em que importa.
 
 name: web-ci
 
@@ -23,6 +25,19 @@ on:
       - '.dependency-cruiser.cjs'
       - 'vitest.workspace.ts'
       - '.github/workflows/web-ci.yml'
+      # Espelha a lista ALVOS do passo que vigia o legado. Se uma mudar, a
+      # outra tem que mudar junto, senão volta a existir caminho legado que
+      # ninguém confere.
+      - 'lib/**'
+      - 'test/**'
+      - 'supabase/**'
+      - 'docs/**'
+      - 'web/**'
+      - 'windows/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - '.metadata'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -80,7 +95,11 @@ jobs:
         run: |
           ALVOS="lib test supabase docs web windows pubspec.yaml pubspec.lock analysis_options.yaml .metadata"
           BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
-          BASE="${BASE:-HEAD^}"
+          # No primeiro push de uma branch e em force-push, `before` vem com
+          # SHA de zeros — não vazio, então `${BASE:-...}` não o substituiria.
+          if [ -z "$BASE" ] || ! git rev-parse --verify -q "$BASE^{commit}" >/dev/null; then
+            BASE="HEAD^"
+          fi
           SUJO=""
           for alvo in $ALVOS; do
             if ! git diff --quiet "$BASE" -- "$alvo"; then
