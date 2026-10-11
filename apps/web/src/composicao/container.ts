@@ -156,15 +156,25 @@ export function redefinirContainer(): void {
 export async function sair(): Promise<void> {
   const c = container();
 
-  // O supabase-js apaga a sessão local mesmo quando a chamada ao servidor
-  // falha, então sair offline continua funcionando. O erro da rede não
-  // interessa: o objetivo aqui é o aparelho, não o servidor.
-  await c.supabase.auth.signOut();
-
-  // Sem isto, os ouvintes de online/offline do monitor antigo sobrevivem ao
-  // descarte do container.
+  // 1. Desligar ANTES de apagar. Enquanto o sincronizador e o monitor de rede
+  //    estiverem vivos, uma rodada pode repovoar o cache entre a limpeza e a
+  //    troca de tela — e o sincronizador antigo continuaria escutando a fila
+  //    depois do descarte do container, processando o outbox do próximo
+  //    operador em paralelo com a instância nova.
+  c.sincronizador.parar();
   c.conectividade.parar();
 
+  // 2. Apagar o dado do aparelho antes de mexer na sessão. Se esta etapa
+  //    falhar, o professor continua logado e pode tentar de novo; na ordem
+  //    inversa ele ficaria deslogado com os dados dos alunos no aparelho.
   await bancoLocal().cache.clear();
+
+  // 3. A sessão. O escopo padrão fala com o servidor para revogar o token —
+  //    bom quando há rede. Offline ele devolve erro e NÃO apaga a sessão
+  //    local, então o escopo `local`, que não depende de rede, fecha a conta
+  //    de qualquer jeito. Sair tem que funcionar no tatame.
+  const { error } = await c.supabase.auth.signOut();
+  if (error) await c.supabase.auth.signOut({ scope: 'local' });
+
   redefinirContainer();
 }

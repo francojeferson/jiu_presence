@@ -306,6 +306,23 @@ describe('SincronizadorOutbox', () => {
       expect(await outbox.falhasPermanentes()).toHaveLength(1);
     });
 
+    it('parado, não processa mais a fila', async () => {
+      // `observarFila` guarda os ouvintes em um Set de MÓDULO. Sem
+      // desinscrever, o sincronizador da sessão anterior continua vivo e
+      // processa o outbox do próximo operador em paralelo com o novo — duas
+      // rodadas sobre a mesma fila, que o bloqueio em memória não cobre.
+      const { remoto, sinc } = montar([]);
+      await sinc.iniciar();
+      sinc.parar();
+
+      const a = id();
+      await outbox.enfileirar(a, 'criar_chamada', {}, AGORA.toISOString());
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(remoto.recebidos).toHaveLength(0);
+      expect(await outbox.pendentes()).toBe(1);
+    });
+
     it('envia um item criado enquanto já está online', async () => {
       const { remoto, sinc } = montar([{ status: 201 }]);
       await sinc.iniciar();

@@ -40,6 +40,7 @@ export class SincronizadorOutbox implements PortaSincronizador {
   private rodadaSolicitada = false;
   private retentativa: ReturnType<typeof setTimeout> | null = null;
   private ouvintes = new Set<(estado: EstadoDeSincronizacao) => void>();
+  private desinscrever: (() => void)[] = [];
 
   constructor(
     private readonly remoto: EnvioRemoto,
@@ -61,16 +62,37 @@ export class SincronizadorOutbox implements PortaSincronizador {
     // para a fila. Sem isso, uma chamada ficaria travada para sempre.
     await this.outbox.destravar();
 
-    this.conectividade.observar((online) => {
-      if (online) void this.sincronizarAgora();
-    });
-    observarFila((mudanca) => {
-      if (mudanca !== 'enfileiramento' || !this.conectividade.online) return;
-      setTimeout(() => void this.sincronizarAgora(), 0);
-    });
+    this.desinscrever.push(
+      this.conectividade.observar((online) => {
+        if (online) void this.sincronizarAgora();
+      }),
+      observarFila((mudanca) => {
+        if (mudanca !== 'enfileiramento' || !this.conectividade.online) return;
+        setTimeout(() => void this.sincronizarAgora(), 0);
+      }),
+    );
     this.conectividade.iniciar();
 
     await this.sincronizarAgora();
+  }
+
+  /**
+   * Desliga o sincronizador.
+   *
+   * `observarFila` guarda os ouvintes em um Set de MÓDULO, que sobrevive ao
+   * descarte da instância. Sem desinscrever, sair da conta deixava um
+   * sincronizador zumbi escutando a fila: quando o próximo operador
+   * enfileirasse algo, duas instâncias processariam o mesmo outbox ao mesmo
+   * tempo. Cada uma tem seu próprio `rodando`, então o bloqueio do EC-08 não
+   * cobre esse caso.
+   */
+  parar(): void {
+    for (const cancelar of this.desinscrever.splice(0)) cancelar();
+    if (this.retentativa !== null) {
+      clearTimeout(this.retentativa);
+      this.retentativa = null;
+    }
+    this.iniciada = false;
   }
 
   async estado(): Promise<EstadoDeSincronizacao> {

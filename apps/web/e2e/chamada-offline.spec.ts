@@ -219,11 +219,15 @@ async function aguardarServiceWorker(page: Page): Promise<void> {
   });
 }
 
-async function autenticar(context: BrowserContext): Promise<void> {
+/** Onde o supabase-js guarda a sessão neste ambiente. */
+function chaveDaSessao(): string {
   const url =
     process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? 'https://exemplo.supabase.co';
-  const chaveDoStorage =
-    'sb-' + new URL(url).hostname.split('.')[0] + '-auth-token';
+  return 'sb-' + new URL(url).hostname.split('.')[0] + '-auth-token';
+}
+
+async function autenticar(context: BrowserContext): Promise<void> {
+  const chaveDoStorage = chaveDaSessao();
 
   await context.addInitScript((chave) => {
     const codificar = (valor: object): string =>
@@ -343,6 +347,28 @@ test('qualquer página abre sem rede, não só a última visitada', async ({
 
   await expect(page.getByRole('heading', { name: 'Turmas' })).toBeVisible();
   await expect(page.getByRole('navigation')).toBeVisible();
+});
+
+/**
+ * Um endereço desconhecido, sem rede, cai na página de fallback.
+ *
+ * É o único caso em que `/offline` ainda aparece. As rotas do app estão todas
+ * no pré-cache, e numa abertura sem rede ANTES da primeira visita online não
+ * existe service worker instalado — quem responde ali é o navegador, com a
+ * tela de erro dele. Sem este teste, `/offline` seria tela sem caminho.
+ */
+test('endereço desconhecido sem rede cai na página de fallback', async ({
+  page,
+  context,
+}) => {
+  await autenticar(context);
+  await page.goto('/');
+  await aguardarServiceWorker(page);
+
+  await context.setOffline(true);
+  await page.goto('/endereco-que-nao-existe');
+
+  await expect(page.getByRole('heading', { name: 'Sem conexão' })).toBeVisible();
 });
 
 /**
@@ -748,6 +774,117 @@ test.describe('saída da conta', () => {
     await expect(page).toHaveURL(/\/turmas$/);
     expect(await itensNaFila(page)).not.toHaveLength(0);
   });
+});
+
+/**
+ * A sessão, não só a tela.
+ *
+ * Precisa de login de VERDADE: `autenticar` injeta o token por
+ * `addInitScript`, que roda de novo a cada carga de documento — e offline a
+ * ida para `/entrar` é uma carga de documento, porque o roteador do Next
+ * não alcança o payload da rota e cai na navegação cheia. O harness
+ * reinstalaria o token recém-apagado e o teste passaria sem provar nada.
+ */
+test('a sessão não sobrevive à saída', async ({ page, context }) => {
+  const ambiente = ambienteSupabase();
+  test.skip(ambiente === null, 'Supabase local não está ativo.');
+  if (ambiente === null) return;
+
+  const admin = criarCliente({
+    url: ambiente.url,
+    chaveAnonima: ambiente.chaveDeServico,
+  });
+  const email = 'saida-' + crypto.randomUUID() + '@example.com';
+  const senha = 'Senha-de-teste-123!';
+  let usuarioId: string | undefined;
+
+  try {
+    const conta = await admin.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true,
+    });
+    expect(conta.error).toBeNull();
+    usuarioId = conta.data.user!.id;
+
+    await page.goto('/entrar');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Senha').fill(senha);
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page).toHaveURL(/\/chamada$/);
+
+    await page.goto('/turmas');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Sair da conta' }).click();
+    await page.getByRole('button', { name: 'Sim, sair' }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+
+    expect(
+      await page.evaluate((chave) => localStorage.getItem(chave), chaveDaSessao()),
+    ).toBeNull();
+
+    // E quem pegar o aparelho não entra voltando para a tela de chamada.
+    await page.goto('/chamada');
+    await expect(page).toHaveURL(/\/entrar$/);
+    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+  } finally {
+    if (usuarioId) await admin.auth.admin.deleteUser(usuarioId);
+  }
+});
+
+
+/**
+ * A mensagem de entrada não diz QUAL campo está errado.
+ *
+ * Distinguir "esse email não existe" de "a senha está errada" entrega a
+ * quem tentar a lista de contas válidas. E, para o professor, saber o campo
+ * não ajuda: a conta é provisionada à mão, não há cadastro para conferir.
+ */
+test('email inexistente e senha errada dão a mesma resposta', async ({ page }) => {
+  const ambiente = ambienteSupabase();
+  test.skip(ambiente === null, 'Supabase local não está ativo.');
+  if (ambiente === null) return;
+
+  const admin = criarCliente({
+    url: ambiente.url,
+    chaveAnonima: ambiente.chaveDeServico,
+  });
+  const email = 'login-' + crypto.randomUUID() + '@example.com';
+  const senha = 'Senha-de-teste-123!';
+  let usuarioId: string | undefined;
+
+  try {
+    const conta = await admin.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true,
+    });
+    expect(conta.error).toBeNull();
+    usuarioId = conta.data.user!.id;
+
+    const tentar = async (
+      emailDigitado: string,
+      senhaDigitada: string,
+    ): Promise<string> => {
+      await page.goto('/entrar');
+      await page.getByLabel('Email').fill(emailDigitado);
+      await page.getByLabel('Senha').fill(senhaDigitada);
+      await page.getByRole('button', { name: 'Entrar' }).click();
+      const erro = page.locator('.erro-texto');
+      await expect(erro).toBeVisible();
+      return (await erro.textContent()) ?? '';
+    };
+
+    const contaReal = await tentar(email, 'senha-errada');
+    const contaInexistente = await tentar('ninguem-' + email, senha);
+
+    expect(contaReal).toBe(contaInexistente);
+    // E nenhum código técnico do Supabase chega à tela.
+    expect(contaReal).not.toMatch(/invalid|credential|grant|400/i);
+    await expect(page).toHaveURL(/\/entrar$/);
+  } finally {
+    if (usuarioId) await admin.auth.admin.deleteUser(usuarioId);
+  }
 });
 
 test('RLS e sincronização funcionam contra o Supabase local', async ({
