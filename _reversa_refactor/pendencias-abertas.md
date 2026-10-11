@@ -152,6 +152,6 @@ Para ninguém reabrir o que já foi decidido ou fechado:
 | Itens 16 e 17 da auditoria de 10-09 | fechados em 2026-10-11 |
 | Os 13 achados da auditoria de 10-11 | fechados, com teste |
 | `BUG-20261009-NLLT` | fechado, `DONE.md` ao lado |
-| Flutter em `lib/`, `web/`, `windows/` | **congelado de propósito**, não é dívida. A remoção tem critérios próprios em `_reversa_sdd/sdd/descomissionamento-do-legado.md` |
+| Flutter em `lib/`, `web/`, `windows/` | **congelado de propósito**, não é dívida. A remoção tem critérios próprios em `_reversa_sdd/sdd/descomissionamento-do-legado.md`: **2 de 10 atendidos**. A extração de informação (CV-09) foi fechada em 2026-10-11 em [`legado-extracao.md`](../_reversa_forward/001-fundacao-e-chamada-manual/legado-extracao.md), então nada de valor se perde na remoção. Os 8 restantes dependem de produção, de aulas reais e de 4 semanas de calendário — **nenhum se fecha escrevendo código** |
 | Código removido por não ter chamador | decisão consciente; volta em 5 linhas quando a feature que o justifica chegar |
 | `total_detectado` e `criada_offline` sempre nulos | ganchos declarados da biometria, mantidos de propósito |

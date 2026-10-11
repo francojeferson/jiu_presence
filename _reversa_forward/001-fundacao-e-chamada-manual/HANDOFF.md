@@ -334,8 +334,11 @@ para *detecção*. O piso para *reconhecimento* é maior e ainda desconhecido.
 
 - O projeto Flutter em `lib/`, `test/`, `supabase/`, `docs/`, `web/`,
   `windows/` é **legado intocável**. A remoção tem 10 critérios em
-  `descomissionamento-do-legado.md`; **zero foram atendidos**. Faltam as 5
-  chamadas em aula real e as 4 semanas sem o papel.
+  `descomissionamento-do-legado.md`; **2 atendidos, 8 pendentes** (CV-06 suíte
+  verde e CV-09 extração, fechados em 2026-10-11 — ver
+  [`legado-extracao.md`](./legado-extracao.md)).
+  O caminho crítico é calendário, não código: CV-08 pede 4 semanas de uso real
+  sem papel, e o relógio não começa antes de o PWA estar em produção.
 - `.avaliacao/` nunca vai para o git — fotos **e** saídas da sonda. Verificar com
   `git check-ignore -v .avaliacao/saida/deteccao.json`
 - `spikes/fase0-deteccao/` é **código descartável**. Não importar nada dali em
