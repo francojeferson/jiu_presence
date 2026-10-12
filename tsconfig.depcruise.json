@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Existe só para o dependency-cruiser enxergar o alias `@/`.
+  //
+  // O alias é declarado em apps/web/tsconfig.json, que o cruise não consegue
+  // ler direto: o `extends: "../../tsconfig.base.json"` de lá é resolvido a
+  // partir da raiz e quebra. Sem o alias, todo import `@/...` fica sem
+  // resolver e as regras de dependência ficam CEGAS para essas arestas —
+  // inclusive para `@/composicao/container`, onde a infraestrutura é montada.
+  //
+  // Aqui o mapeamento é relativo à raiz, então vale para o monorepo inteiro:
+  // se um pacote importar `@/algo`, resolve para apps/web e a regra da camada
+  // acusa, em vez de deixar passar como não-resolvível.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./apps/web/src/*"]
+    }
+  }
+}

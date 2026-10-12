@@ -42,17 +42,35 @@ function lerConfig(): ConfigDoCruiser {
 
 async function analisar(): Promise<readonly Violacao[]> {
   const { cruise } = await import('dependency-cruiser');
+  const { default: extrairTSConfig } = await import(
+    'dependency-cruiser/config-utl/extract-ts-config'
+  );
   const config = lerConfig();
+
+  // O resolvedor procura o tsconfig em `ruleSet.options`, não no topo das
+  // opções: passar `options` só espalhado deixava o alias `@/` sem resolver, e
+  // este teste via o projeto de forma diferente do `pnpm arch` — justamente o
+  // que ele existe para replicar. O tsconfig parseado vai junto porque é dele
+  // que sai o `baseUrl`.
+  const { fileName } = config.options.tsConfig as { readonly fileName: string };
+  const tsConfig = extrairTSConfig(resolve(RAIZ, fileName));
 
   // O cruiser resolve caminhos relativos ao cwd.
   const cwdOriginal = process.cwd();
   process.chdir(RAIZ);
   try {
-    const resultado = await cruise(['packages', 'apps'], {
-      ...config.options,
-      ruleSet: { forbidden: config.forbidden },
-      validate: true,
-    } as Parameters<typeof cruise>[1]);
+    const resultado = await cruise(
+      ['packages', 'apps'],
+      {
+        ...config.options,
+        ruleSet: { forbidden: config.forbidden, options: config.options },
+        validate: true,
+        // A config vem de `require`, com forma solta demais para casar com
+        // `ICruiseOptions` sem passar por `unknown`.
+      } as unknown as Parameters<typeof cruise>[1],
+      undefined,
+      { tsConfig },
+    );
 
     const saida = resultado.output;
     if (typeof saida === 'string') {
@@ -80,6 +98,9 @@ describe('regra de dependência da Arquitetura Limpa', () => {
     expect(nomes).toContain('infra-nao-depende-de-ui');
     expect(nomes).toContain('sem-dependencia-circular');
     expect(nomes).toContain('nao-tocar-no-legado-flutter');
+    // Sem esta, um import que não resolve escapa de TODAS as regras acima:
+    // sem caminho resolvido não há o que comparar, e a violação passa calada.
+    expect(nomes).toContain('sem-import-que-nao-resolve');
   });
 
   it('nenhuma camada importa de camada mais externa', async () => {

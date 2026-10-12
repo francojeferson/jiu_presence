@@ -60,6 +60,20 @@ module.exports = {
       to: { path: '^apps' },
     },
     {
+      name: 'sem-import-que-nao-resolve',
+      severity: 'error',
+      comment:
+        'Import que o resolvedor não encontra não tem caminho para comparar, ' +
+        'então TODAS as regras de camada acima passam por cima dele em ' +
+        'silêncio. Era o buraco real desta configuração: um `import ' +
+        '"@jiupresence/infrastructure"` dentro de domain, sem a dependência ' +
+        'declarada no package.json, não resolvia e a regra não acusava — o ' +
+        'build só quebrava no tsc, por outro motivo. Aqui a ausência de ' +
+        'resolução vira erro próprio, em vez de virar permissão.',
+      from: {},
+      to: { couldNotResolve: true },
+    },
+    {
       name: 'sem-dependencia-circular',
       severity: 'error',
       comment: 'Ciclo entre módulos indica fronteira mal desenhada.',
@@ -123,10 +137,15 @@ module.exports = {
         '\\.spec\\.ts$',
         // Service worker gerado pelo build, não é código-fonte.
         '^apps/web/public/sw\\.js',
+        // Gerado pelo Next a cada build. Referencia tipos internos do
+        // framework (`next/image-types/global`) que não existem como arquivo.
+        '^apps/web/next-env\\.d\\.ts$',
       ],
     },
     tsPreCompilationDeps: true,
-    tsConfig: { fileName: 'tsconfig.base.json' },
+    // Não é o tsconfig.base.json: este acrescenta o alias `@/`, sem o qual
+    // os imports de apps/web não resolvem e escapam das regras acima.
+    tsConfig: { fileName: 'tsconfig.depcruise.json' },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'require', 'node', 'default', 'types'],
