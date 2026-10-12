@@ -88,6 +88,11 @@ module.exports = {
           '(^|/)vitest\\.workspace\\.ts$',
           // Service worker: ponto de entrada próprio, empacotado à parte.
           '^apps/web/src/app/sw\\.ts$',
+          // Apoio de teste (ex.: test/setup.ts). Os `.test.ts` ficam de fora
+          // do cruise por `exclude`, então quem importa estes arquivos é
+          // invisível aqui e eles apareceriam como órfãos sempre. Não dá para
+          // julgar orfandade de um módulo cujos importadores não são lidos.
+          '^packages/[^/]+/test/',
         ],
       },
       to: {},
