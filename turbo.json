@@ -5,6 +5,28 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    // Os pacotes de biblioteca são consumidos como código TypeScript
+    // (`exports` aponta para `src/index.ts`), então o `build` deles é um
+    // `tsc --noEmit`: verifica que compila e não escreve arquivo nenhum.
+    // Sem declarar `outputs: []` o turbo herda `dist/**` do `build` acima,
+    // procura artefato que nunca vai existir e avisa a cada execução.
+    //
+    // O `dependsOn` é repetido de propósito: configuração por pacote
+    // SUBSTITUI a tarefa base, não a estende. Omitir aqui zera o `^build` e
+    // solta a ordem do grafo — efeito colateral que não tem a ver com o aviso.
+    "@jiupresence/contracts#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@jiupresence/domain#build": { "dependsOn": ["^build"], "outputs": [] },
+    "@jiupresence/application#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@jiupresence/infrastructure#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
