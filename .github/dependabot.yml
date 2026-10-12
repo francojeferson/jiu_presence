@@ -1,22 +1,40 @@
 version: 2
+
+# Sobre `seguranca` em cada ecossistema: security updates NÃO respeitam o
+# `schedule` nem o `open-pull-requests-limit` — eles disparam assim que um
+# advisory sai e, sem grupo, abrem um PR POR PACOTE. Era de onde vinha a
+# enxurrada. `applies-to: security-updates` faz chegarem juntos, num PR só.
+# Os grupos sem `applies-to` seguem valendo apenas para version updates.
 updates:
-  - package-ecosystem: "pub"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 3
-    groups:
-      pub:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-      pub-major:
-        patterns: ["*"]
-        update-types: ["major"]
+  # O ecossistema `pub` foi removido de propósito.
+  #
+  # Ele atualizava o projeto Flutter legado, que o CLAUDE.md declara
+  # intocável e que o `web-ci` protege com o passo "O legado Flutter
+  # permanece intocado". Todo PR que o dependabot abria ali era immergível
+  # por construção: aplicá-lo quebraria o CI no main. A remoção do legado é
+  # uma feature própria, com critérios em
+  # _reversa_sdd/sdd/descomissionamento-do-legado.md.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 2
     groups:
+      seguranca:
+        applies-to: security-updates
+        patterns: ["*"]
       github-actions:
+        patterns: ["*"]
+
+  # npm entra só para poder agrupar os security updates: é deles que vinham
+  # os PRs avulsos deste repo. `open-pull-requests-limit: 0` desliga os
+  # version updates, que não existiam aqui antes e não vão passar a existir.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 0
+    groups:
+      seguranca:
+        applies-to: security-updates
         patterns: ["*"]
