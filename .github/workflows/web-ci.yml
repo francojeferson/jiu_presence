@@ -23,6 +23,7 @@ on:
       - 'turbo.json'
       - 'tsconfig.base.json'
       - '.dependency-cruiser.cjs'
+      - 'tsconfig.depcruise.json'
       - 'vitest.workspace.ts'
       - '.github/workflows/web-ci.yml'
       # Espelha a lista ALVOS do passo que vigia o legado. Se uma mudar, a
