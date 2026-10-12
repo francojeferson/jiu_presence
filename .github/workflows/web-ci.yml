@@ -65,9 +65,13 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
+      # Node 22 é piso, não preferência: `@supabase/supabase-js` declara
+      # `engines: node >=22.0.0`, e no Node 20 faltam os globais `navigator`
+      # (chegou no 21) e `WebSocket` (ligado por padrão no 22.4) — a suíte de
+      # infrastructure quebrava só aqui, porque quem desenvolve já está no 22+.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Instalar dependências
@@ -125,9 +129,13 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
+      # Node 22 é piso, não preferência: `@supabase/supabase-js` declara
+      # `engines: node >=22.0.0`, e no Node 20 faltam os globais `navigator`
+      # (chegou no 21) e `WebSocket` (ligado por padrão no 22.4) — a suíte de
+      # infrastructure quebrava só aqui, porque quem desenvolve já está no 22+.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Instalar dependências
