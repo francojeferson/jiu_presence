@@ -24,10 +24,12 @@
     "turbo": "^2.1.0",
     "typescript": "^5.6.0",
     "vitest": "^5.0.4",
-    "@vitest/coverage-v8": "^2.1.0"
+    "@vitest/coverage-v8": "^5.0.4"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"],
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
     "overrides": {
       "postcss": ">=8.5.23"
     }
