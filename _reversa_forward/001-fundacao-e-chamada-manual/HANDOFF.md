@@ -38,10 +38,29 @@ main == origin/main, árvore limpa
 pnpm typecheck    9 tarefas, todas verdes
 pnpm test         241 testes — domain 99, application 42, infrastructure 100
 pnpm build        5 tarefas, 8 rotas
-pnpm audit --prod nenhuma vulnerabilidade
-pnpm arch         0 erros (1 aviso pré-existente: test/setup.ts órfão)
+pnpm arch         0 violações, 52 módulos, 102 dependências — sem aviso
+pnpm audit --prod 1 alta restante (zod 3, item 8 do registro), 0 críticas
 pnpm e2e          23/23 com Supabase local de pé; sem ele, 2 são ignorados
 ```
+
+> Tudo acima, exceto o `e2e`, foi **medido em 2026-10-24 com `--force`**, sem
+> cache do turbo. Duas linhas mudaram em relação ao handoff anterior: o aviso
+> de `test/setup.ts` órfão no `arch` **não existe mais**, e o `audit` deixou de
+> ser zero — ver a entrada de segurança abaixo. O `e2e` não foi reexecutado
+> nesta sessão por depender de Docker.
+
+Produção, conferível sem credencial nenhuma:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://jiu-presence.vercel.app/entrar   # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://jiu-presence.vercel.app/sw.js    # 200
+curl -s https://zjqyoivjirnveyrubakv.supabase.co/auth/v1/settings \
+  -H "apikey: sb_publishable_BzKMJBu8Nm9pnyAIsjvxyg_pllbK9zA" | grep -o '"disable_signup":[a-z]*'   # true
+```
+
+Se `disable_signup` voltar `false`, alguém reabriu o cadastro: feche antes de
+qualquer outra coisa. A chave acima é pública por desenho — ela viaja no bundle
+JavaScript, e quem protege os dados é a RLS.
 
 > O "14 tarefas" anotado antes vinha de uma corrida que listava os `build`
 > intermediários; `turbo` reporta **9**. A contagem de testes é o sinal
@@ -53,13 +72,83 @@ nasce errado. As contagens de teste são o sinal de deriva que funciona, e
 
 Para o E2E completo é preciso Docker e `pnpm exec supabase start --workdir infra`.
 
+---
+
+## Produção
+
+> **No ar desde 2026-10-24.** Antes desta data o projeto nunca tinha sido
+> implantado, e "ambientes implantados nunca exercitados" era o maior risco
+> residual registrado em [`pendencias-abertas.md`](../../_reversa_refactor/pendencias-abertas.md).
+
+| | |
+|---|---|
+| URL de produção | **https://jiu-presence.vercel.app** |
+| Projeto Supabase | `jiu-presence-sp` · ref **`zjqyoivjirnveyrubakv`** · **`sa-east-1`** (São Paulo) · plano free, compute Nano |
+| Projeto Vercel | `jiu-presence`, time `jeferson-francos-projects`, Root Directory `apps/web`, preset Next.js |
+| Operador provisionado | `jfranco.adm@gmail.com` |
+
+### Armadilhas que custaram tempo e vão custar de novo
+
+**1. Usuário no Auth não basta: sem linha em `operador`, tudo falha em
+silêncio.** As políticas da migração `0005` exigem `EXISTS (SELECT 1 FROM
+operador WHERE id = auth.uid())`. Com o usuário criado mas sem a linha
+espelhada, todo `INSERT` volta **403 `42501`** e toda leitura volta vazia. E
+como 403 cai no ramo final de [`classificacao.ts`](../../packages/infrastructure/src/sync/classificacao.ts)
+— "código não previsto é transitório por desenho" — a outbox **espera em vez de
+reclamar**. A tela mostra "N registros aguardando envio" e parece problema de
+rede. É o passo 4 do `README.md` do app, e é o primeiro lugar para olhar se
+nada sobe.
+
+**2. A fila demora mais que a sua paciência.** Depois de corrigir a causa, os
+itens sobem sozinhos, mas não instantaneamente — há espera exponencial. Medir o
+servidor 12 segundos depois e ver tabela vazia **não** é prova de perda de
+dado. Consulte de novo antes de abrir investigação; nesta sessão isso gerou um
+alarme falso de perda silenciosa.
+
+**3. A URL do deployment é protegida, a de produção não.** `jiu-presence-<hash>-
+<time>.vercel.app` passa por Vercel Authentication e redireciona o
+`manifest.json` para `vercel.com/sso-api`. Quem estiver logado na Vercel não
+percebe. **Teste sempre no domínio de produção, e num contexto de navegador sem
+os cookies da Vercel** — foi assim que se confirmou que o professor consegue
+abrir.
+
+**4. `NEXT_PUBLIC_SUPABASE_ANON_KEY` guarda uma chave `sb_publishable_…`, não um
+JWT.** A Supabase parou de oferecer a anon key legada em projeto novo. Funciona
+sem tocar em código: `supabase-js` 2.117.2 repassa a chave opaca, e
+[`cliente.ts`](../../packages/infrastructure/src/supabase/cliente.ts) não
+decodifica nada. O nome da variável continua o antigo de propósito.
+
+### Como aplicar migração no projeto hospedado
+
+Conexão direta (`db.<ref>.supabase.co`) é **IPv6-only**. Em rede IPv4 use o
+*session pooler*, porta 5432 — modo sessão, não transação, que é o certo para
+DDL:
+
+```bash
+pnpm exec supabase db push --dry-run --workdir infra \
+  --db-url "postgresql://postgres.zjqyoivjirnveyrubakv:<SENHA-PERCENT-ENCODED>@aws-1-sa-east-1.pooler.supabase.com:5432/postgres"
+```
+
+`--db-url` dispensa `supabase login`, o que também imuniza contra instabilidade
+da Management API. Rode com `--dry-run` primeiro: ele prova a conexão e lista o
+que subiria. Para conectar com `pg` em script, a verificação de TLS exige a CA
+da Supabase (`prod-ca-2021.crt`, link em Settings → Database); não desligue
+`rejectUnauthorized`.
+
+> ⚠️ Existe um projeto **`jiu-presence` pausado em `us-west-2`**, ref
+> `frvnuwgufbnsykgiqcyv`. Não é este. Foi mantido intocado por não se saber se
+> era o do Flutter legado. A região de um projeto Supabase não pode ser
+> trocada depois de criado — foi por isso que se criou um novo.
+
 ## Trilhas
 
 As duas são independentes. A escolha é do usuário, não do agente.
 
 | Trilha | Primeiro passo | Leitura específica |
 |---|---|---|
-| **Dívida** | **esgotada.** Nenhuma dívida de código, e as duas lacunas de teste baratas foram fechadas. O que resta no item 4 do registro precisa de ambiente implantado ou de aparelho na mão, não de código | só o registro |
+| **Uso real** | **a mais valiosa hoje.** O sistema está em produção e só foi exercitado no desktop. Instalar o PWA num celular, rodar uma chamada de turma inteira numa aula de verdade, e ver o que quebra. Também é o que faz o relógio de 4 semanas do CV-08 andar | a seção "Produção" acima |
+| **Decisões do professor** | duas perguntas de trinta segundos que ficam mais caras a cada aluno cadastrado: carência de edição (premissa: 24h) e escala infantil (premissa: corte aos 16) | itens 1 e 2 do registro |
+| **Dívida** | **esgotada.** Nenhuma dívida de código. O que resta no item 4 do registro precisa de aparelho na mão, não de código | só o registro |
 | **Produto** | biometria — travada em dados e licença, não em código | este arquivo → [`fase0-deteccao-resultado.md`](./fase0-deteccao-resultado.md) → `_reversa_sdd/sdd/biometria-facial-on-device.md` §6.1 |
 
 > Palavras-chave antigas continuam funcionando e caem aqui:
@@ -68,21 +157,25 @@ As duas são independentes. A escolha é do usuário, não do agente.
 
 ---
 
-Data: `2026-10-11` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
+Data: `2026-10-24` · Projeto: JiuPresence · Feature ativa: `001-fundacao-e-chamada-manual`
 
-> **Atualizado após a medição de detecção da Fase 0.**
-> O passo 1 do plano anterior está concluído. Dois bloqueios que constavam
-> aqui eram falsos e foram removidos; um bloqueio novo e real apareceu.
+> **Atualizado após a primeira implantação em produção.**
+> O sistema saiu do laptop: Supabase em São Paulo e Vercel, com dado real
+> dentro. Nada da Fase 0 mudou — a biometria continua exatamente onde parou.
+> O que mudou é que o maior risco residual do projeto deixou de ser risco, e
+> três armadilhas de ambiente implantado foram descobertas na prática e estão
+> registradas na seção "Produção".
 
 ---
 
 ## Em uma frase
 
-A feature 001 está **entregue e verificada**. Na Fase 0, a **detecção foi
-medida e não é o gargalo** — o detector encontra inclusive as crianças da
-foto 03. O risco migrou para o **reconhecimento**, e o que o limita é o
-tamanho do rosto em pixel, que hoje é artefato da compressão do WhatsApp.
-**Nenhum veredito da Fase 0 foi emitido.**
+A feature 001 está **entregue, verificada e em produção** desde 2026-10-24,
+com o primeiro aluno e a primeira chamada reais gravados em São Paulo. Na
+Fase 0, a **detecção foi medida e não é o gargalo** — o detector encontra
+inclusive as crianças da foto 03. O risco migrou para o **reconhecimento**, e
+o que o limita é o tamanho do rosto em pixel, que hoje é artefato da
+compressão do WhatsApp. **Nenhum veredito da Fase 0 foi emitido.**
 
 ---
 
@@ -338,7 +431,8 @@ para *detecção*. O piso para *reconhecimento* é maior e ainda desconhecido.
   verde e CV-09 extração, fechados em 2026-10-11 — ver
   [`legado-extracao.md`](./legado-extracao.md)).
   O caminho crítico é calendário, não código: CV-08 pede 4 semanas de uso real
-  sem papel, e o relógio não começa antes de o PWA estar em produção.
+  sem papel, e o relógio **começou a contar em 2026-10-24**, quando o PWA
+  entrou em produção. Antes dessa data ele estava parado.
 - `.avaliacao/` nunca vai para o git — fotos **e** saídas da sonda. Verificar com
   `git check-ignore -v .avaliacao/saida/deteccao.json`
 - `spikes/fase0-deteccao/` é **código descartável**. Não importar nada dali em

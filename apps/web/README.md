@@ -69,9 +69,24 @@ roda como teste. Violar a fronteira **quebra o build**.
 
 1. Aplique as migrações de `infra/supabase/migrations/` em ordem.
 2. Confirme a RLS: consulta anônima sem sessão deve retornar **zero linhas**
-   em todas as tabelas.
-3. Crie o usuário do professor em Authentication (não há cadastro aberto).
-4. Insira a linha correspondente em `operador`, com o mesmo `id`.
+   em todas as tabelas. Tabela vazia devolve zero linhas com ou sem RLS — o
+   teste só prova alguma coisa com uma linha plantada por quem ignora RLS.
+3. Desligue o cadastro aberto: Authentication → Sign In / Providers → **Allow
+   new users to sign up** desmarcado. Projeto novo vem com ele **ligado**, e o
+   produto não tem cadastro aberto por desenho.
+4. Aponte o **Site URL** do Auth para a URL de produção. O padrão é
+   `http://localhost:3000`, e com ele o link de redefinição de senha leva o
+   professor a localhost.
+5. Crie o usuário do professor em Authentication (não há cadastro aberto).
+6. Insira a linha correspondente em `operador`, com o mesmo `id`.
+
+> ⚠️ **Pular o passo 6 falha em silêncio.** As políticas exigem
+> `EXISTS (SELECT 1 FROM operador WHERE id = auth.uid())`. Com o usuário criado
+> mas sem a linha espelhada, o professor entra normalmente, mas todo `INSERT`
+> volta `403 / 42501` e toda leitura volta vazia. Como 403 é classificado como
+> transitório, a outbox **espera em vez de reclamar**: a tela diz "N registros
+> aguardando envio" e parece falta de rede. É o primeiro lugar para olhar se
+> nada sobe.
 
 ### Local
 
